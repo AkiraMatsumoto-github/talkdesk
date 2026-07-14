@@ -20,6 +20,8 @@ erDiagram
     users ||--o{ push_subscriptions : ""
     channels ||--o{ channel_members : "依頼者側の閲覧権限"
     channels ||--o{ threads : "依頼/トピック"
+    channels ||--o{ pages : "ナレッジページ"
+    pages ||--o{ page_revisions : "編集履歴"
     users ||--o{ channel_members : ""
     threads ||--o{ messages : ""
     threads ||--o{ thread_read_cursors : ""
@@ -121,6 +123,7 @@ erDiagram
 | deleted_at | timestamptz NULL | 削除痕跡（FR-H7）。削除時にbodyは空文字化、添付は物理削除 |
 
 - INDEX: `(thread_id, id)` — スレッド内ページング・差分取得用
+- attachmentsへの参照は `owner_type='message', owner_id=messages.id`
 - INDEX: `(channel_id, id)` — チャンネル単位の差分取得・ファイルタブ用
 
 ### attachments
@@ -128,7 +131,8 @@ erDiagram
 | カラム | 型 | 備考 |
 |---|---|---|
 | id | uuid PK | |
-| message_id | uuid FK | |
+| owner_type | enum: `message` / `page` | 添付先の種別 |
+| owner_id | uuid | メッセージID or ページID |
 | file_name | text | |
 | content_type | text | |
 | size_bytes | bigint | 上限100MB（FR-F3、アプリ層で検査） |
@@ -145,6 +149,32 @@ erDiagram
 
 - **メッセージ×ユーザーの既読行は作らない**（行数爆発を防ぐ）。「誰が読んだか」（FR-H5）は `last_read_message_id >= 対象メッセージID` のユーザー集合として導出する（UUIDv7の時系列性を利用）。Slackと同じカーソル方式
 - 未読数: スレッド単位＝カーソルより新しいメッセージ数、チャンネル単位＝配下スレッドの合計、企業単位（アシスタントのレール用）＝チャンネル合計。集計はRedisにキャッシュ
+
+### pages（ナレッジページ: 業務マニュアル）
+
+| カラム | 型 | 備考 |
+|---|---|---|
+| id | uuid PK | |
+| channel_id | uuid FK | |
+| organization_id | uuid FK | テナント境界の多層防御 |
+| title | text | |
+| body | text | Markdown。最新版を保持 |
+| revision | int | 楽観ロック用（FR-K4）。保存時に一致検査してインクリメント |
+| updated_by | uuid FK(users) | |
+| archived_at | timestamptz NULL | |
+
+### page_revisions（編集履歴）
+
+| カラム | 型 | 備考 |
+|---|---|---|
+| id | uuid PK | |
+| page_id | uuid FK | |
+| revision | int | UNIQUE(page_id, revision) |
+| title / body | text | 保存時点の全文スナップショット（FR-K3） |
+| edited_by | uuid FK(users) | |
+
+- 復元は「過去版の内容で新しいrevisionを作る」操作とし、履歴は改変しない
+- ページ内画像はattachmentsを流用（`owner_type = 'page'`）。表示時にAPIが認可チェックして配信する（FR-K5）
 
 ### invitations
 
