@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { api } from "../api";
 import { useAuth } from "../stores/auth";
 import { useToasts } from "../stores/toast";
 import { Avatar, Button } from "../components/ui";
@@ -8,11 +9,45 @@ const COLORS = ["#e11d48", "#2563eb", "#7c3aed", "#16a34a", "#ca8a04", "#0891b2"
 /** §5.1 プロフィール設定（SET-1, SET-2） */
 export function SettingsProfile() {
   const user = useAuth((s) => s.user)!;
-  const updateProfile = useAuth((s) => s.updateProfile);
+  const setUser = useAuth((s) => s.login);
   const pushToast = useToasts((s) => s.push);
   const [name, setName] = useState(user.name);
+  const [color, setColor] = useState(user.color);
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(user.avatarUrl);
+  const [saving, setSaving] = useState(false);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // SET-1: アバター画像（モックではdataURLとして保持）
+  const pickAvatar = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      pushToast({ title: "画像ファイルを選択してください", kind: "error" });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      pushToast({ title: "アバター画像は2MB以内にしてください", kind: "error" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setAvatarUrl(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  // API経由で更新 → db.users にも反映され、過去メッセージ・メンバー管理の表示も追随する
+  const save = async () => {
+    setSaving(true);
+    try {
+      const updated = await api.updateProfile(user.id, { name: name.trim(), color, avatarUrl });
+      setUser({ ...updated });
+      pushToast({ title: "プロフィールを保存しました", kind: "success" });
+    } catch (e) {
+      pushToast({ title: e instanceof Error ? e.message : "保存に失敗しました", kind: "error" });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="min-w-0 flex-1 overflow-y-auto bg-slate-50/50">
@@ -21,10 +56,36 @@ export function SettingsProfile() {
 
         <section className="mt-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-4">
-            <Avatar user={{ name: name || user.name, color: user.color }} size={56} />
-            <div>
+            <Avatar user={{ name: name || user.name, color, avatarUrl }} size={56} />
+            <div className="min-w-0 flex-1">
               <div className="text-sm font-bold">{name || user.name}</div>
-              <div className="text-xs text-slate-400">{user.email}（メールアドレスの変更は将来対応）</div>
+              <div className="truncate text-xs text-slate-400">{user.email}（メールアドレスの変更は将来対応）</div>
+              <div className="mt-1.5 flex gap-2">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    pickAvatar(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="rounded-lg border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                >
+                  画像をアップロード
+                </button>
+                {avatarUrl && (
+                  <button
+                    onClick={() => setAvatarUrl(undefined)}
+                    className="rounded-lg px-2 py-1 text-xs text-rose-600 hover:bg-rose-50"
+                  >
+                    画像を削除
+                  </button>
+                )}
+              </div>
             </div>
           </div>
           <label className="mt-4 block text-sm font-medium">
@@ -37,13 +98,13 @@ export function SettingsProfile() {
             />
           </label>
           <div className="mt-4">
-            <span className="text-sm font-medium">アバターカラー</span>
+            <span className="text-sm font-medium">アバターカラー <span className="font-normal text-slate-400">(画像未設定のとき使用)</span></span>
             <div className="mt-1.5 flex gap-2">
               {COLORS.map((c) => (
                 <button
                   key={c}
-                  onClick={() => updateProfile({ color: c })}
-                  className={`h-7 w-7 rounded-full transition-transform hover:scale-110 ${user.color === c ? "ring-2 ring-slate-800 ring-offset-2" : ""}`}
+                  onClick={() => setColor(c)}
+                  className={`h-7 w-7 rounded-full transition-transform hover:scale-110 ${color === c ? "ring-2 ring-slate-800 ring-offset-2" : ""}`}
                   style={{ backgroundColor: c }}
                   aria-label={`カラー ${c}`}
                 />
@@ -51,13 +112,7 @@ export function SettingsProfile() {
             </div>
           </div>
           <div className="mt-4 flex justify-end">
-            <Button
-              onClick={() => {
-                updateProfile({ name: name.trim() });
-                pushToast({ title: "プロフィールを保存しました", kind: "success" });
-              }}
-              disabled={!name.trim()}
-            >
+            <Button onClick={save} loading={saving} disabled={!name.trim()}>
               保存
             </Button>
           </div>

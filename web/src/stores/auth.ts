@@ -12,7 +12,6 @@ interface AuthState {
   logout: () => void;
   setLastChannel: (orgId: string, channelId: string) => void;
   setLastOrg: (orgId: string) => void;
-  updateProfile: (patch: Partial<Pick<User, "name" | "color">>) => void;
 }
 
 export const useAuth = create<AuthState>()(
@@ -30,7 +29,6 @@ export const useAuth = create<AuthState>()(
       setLastChannel: (orgId, channelId) =>
         set((s) => ({ lastChannelByOrg: { ...s.lastChannelByOrg, [orgId]: channelId } })),
       setLastOrg: (orgId) => set({ lastOrgId: orgId }),
-      updateProfile: (patch) => set((s) => (s.user ? { user: { ...s.user, ...patch } } : s)),
     }),
     { name: "talkdesk-auth" },
   ),

@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { api } from "../api";
-import { useApiData } from "../hooks/useApiData";
-import { useAuth } from "../stores/auth";
+import { useApiData, useUsersById } from "../hooks/useApiData";
 import { useOrgCtx } from "../layout/OrgContext";
 import { useChannel } from "./ChannelLayout";
 import { Button, EmptyState, SkeletonList } from "../components/ui";
@@ -10,26 +9,20 @@ import { formatDateTime } from "../utils/format";
 
 /** §4.2 ナレッジタブ: ページ一覧（KB-2） */
 export function PagesList() {
-  const user = useAuth((s) => s.user)!;
   const { channel } = useChannel();
   const { basePath } = useOrgCtx();
-  const navigate = useNavigate();
   const [query, setQuery] = useState("");
-  const [creating, setCreating] = useState(false);
 
   const pages = useApiData(() => api.listPages(channel.id), [channel.id]);
-  const users = useApiData(() => api.listChannelViewers(channel.id), [channel.id]);
+  // 更新者の表示は getUser ベース（権限剥奪・無効化済みユーザーの更新も名前を表示できる）
+  const usersById = useUsersById((pages ?? []).map((p) => p.updatedBy));
 
-  if (!pages || !users) return <div className="flex-1"><SkeletonList /></div>;
+  if (!pages || !usersById) return <div className="flex-1"><SkeletonList /></div>;
 
   const filtered = pages.filter((p) => p.title.toLowerCase().includes(query.toLowerCase()));
   const base = `${basePath}/channels/${channel.id}/pages`;
-
-  const createPage = async () => {
-    setCreating(true);
-    const page = await api.createPage(channel.id, "無題のページ", "", user.id);
-    navigate(`${base}/${page.id}/edit`);
-  };
+  // KB-1: 新規ページは専用ルートで編集し、保存時に初めて作成する（破棄しても空ページを残さない）
+  const newPagePath = `${base}/new/edit`;
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -45,7 +38,9 @@ export function PagesList() {
         </div>
         {/* KB-1: 作成はチャンネル閲覧者全員可（アーカイブ済みは不可） */}
         {!channel.archived && (
-          <Button onClick={createPage} loading={creating}>＋ 新規ページ</Button>
+          <Link to={newPagePath}>
+            <Button>＋ 新規ページ</Button>
+          </Link>
         )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -54,12 +49,18 @@ export function PagesList() {
             icon="📖"
             title={query ? "一致するページがありません" : "ナレッジページはまだありません"}
             description={query ? undefined : "業務マニュアルや手順をページとして蓄積できます。"}
-            action={!query && !channel.archived ? <Button onClick={createPage}>＋ 新規ページ</Button> : undefined}
+            action={
+              !query && !channel.archived ? (
+                <Link to={newPagePath}>
+                  <Button>＋ 新規ページ</Button>
+                </Link>
+              ) : undefined
+            }
           />
         )}
         <div className="mx-auto max-w-3xl space-y-1.5">
           {filtered.map((p) => {
-            const editor = users.find((u) => u.id === p.updatedBy);
+            const editor = usersById[p.updatedBy];
             return (
               <Link
                 key={p.id}

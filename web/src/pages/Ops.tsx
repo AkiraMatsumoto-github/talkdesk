@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, NavLink, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
-import type { Message, Thread } from "../api/types";
+import type { Message, Thread, User } from "../api/types";
 import { useApiData } from "../hooks/useApiData";
 import { useAuth } from "../stores/auth";
 import { useToasts } from "../stores/toast";
@@ -150,6 +150,7 @@ function OpsOrgDetail() {
   const user = useAuth((s) => s.user)!;
   const pushToast = useToasts((s) => s.push);
   const [assignError, setAssignError] = useState("");
+  const [selectedAssistantId, setSelectedAssistantId] = useState("");
 
   const org = useApiData(() => api.getOrg(orgId!), [orgId]);
   const assistants = useApiData(() => api.listAssistants(), []);
@@ -200,9 +201,10 @@ function OpsOrgDetail() {
         {candidates.length > 0 && (
           <div className="mt-3 flex items-center gap-2">
             <select
-              id="assign-select"
+              value={selectedAssistantId}
+              onChange={(e) => setSelectedAssistantId(e.target.value)}
               className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-indigo-500"
-              defaultValue=""
+              aria-label="アサインするアシスタント"
             >
               <option value="" disabled>アシスタントを選択…</option>
               {candidates.map((a) => (
@@ -211,12 +213,12 @@ function OpsOrgDetail() {
             </select>
             <Button
               variant="secondary"
+              disabled={!selectedAssistantId}
               onClick={async () => {
-                const sel = document.getElementById("assign-select") as HTMLSelectElement;
-                if (!sel.value) return;
                 setAssignError("");
                 try {
-                  await api.assignAssistant(org.id, sel.value, user.id);
+                  await api.assignAssistant(org.id, selectedAssistantId, user.id);
+                  setSelectedAssistantId("");
                   pushToast({ title: "アサインしました", kind: "success" });
                 } catch (e) {
                   // FR-O2: 上限10社バリデーション
@@ -363,6 +365,8 @@ function OpsAssistants() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false);
+  const [confirmDisable, setConfirmDisable] = useState<User | null>(null);
+  const [disabling, setDisabling] = useState(false);
 
   const data = useApiData(async () => {
     const [assistants, assignments, orgs] = await Promise.all([api.listAssistants(), api.listAssignments(), api.listOrgs()]);
@@ -392,19 +396,65 @@ function OpsAssistants() {
       </div>
       <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         {data.map(({ assistant: a, orgs }) => (
-          <div key={a.id} className="flex items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0">
+          <div
+            key={a.id}
+            className={`flex items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0 ${a.disabled ? "opacity-50" : ""}`}
+          >
             <Avatar user={a} size={32} />
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-bold">{a.name}</div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold">{a.name}</span>
+                {a.disabled && (
+                  <span className="rounded bg-rose-100 px-1.5 py-px text-[11px] font-bold text-rose-700">無効</span>
+                )}
+              </div>
               <div className="truncate text-xs text-slate-400">{a.email}</div>
             </div>
             <div className="text-right">
               <span className={`text-sm font-bold ${orgs.length >= 10 ? "text-rose-600" : "text-slate-600"}`}>{orgs.length}/10社</span>
               <div className="max-w-56 truncate text-xs text-slate-400">{orgs.join("、") || "担当なし"}</div>
             </div>
+            {/* OPS-4: アシスタントの無効化 */}
+            {!a.disabled && (
+              <Button variant="ghost" className="text-xs text-rose-600" onClick={() => setConfirmDisable(a)}>
+                無効化
+              </Button>
+            )}
           </div>
         ))}
       </div>
+
+      {confirmDisable && (
+        <Modal
+          title="アシスタントを無効化"
+          onClose={() => setConfirmDisable(null)}
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setConfirmDisable(null)}>キャンセル</Button>
+              <Button
+                variant="danger"
+                loading={disabling}
+                onClick={async () => {
+                  setDisabling(true);
+                  await api.disableMember(confirmDisable.id, user.id);
+                  setDisabling(false);
+                  pushToast({ title: `${confirmDisable.name} を無効化しました` });
+                  setConfirmDisable(null);
+                }}
+              >
+                無効化する
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm">
+            <strong>{confirmDisable.name}</strong>（{confirmDisable.email}）を無効化します。
+          </p>
+          <p className="mt-2 text-xs text-slate-500">
+            無効化すると即時に全セッションが失効し、担当企業のチャンネルにアクセスできなくなります。この操作は監査ログに記録されます。
+          </p>
+        </Modal>
+      )}
 
       {inviteOpen && (
         <Modal

@@ -5,7 +5,24 @@ import { useToasts } from "../stores/toast";
 
 // ---- アバター ----
 
-export function Avatar({ user, size = 32 }: { user: Pick<User, "name" | "color">; size?: number }) {
+export function Avatar({
+  user,
+  size = 32,
+}: {
+  user: Pick<User, "name" | "color"> & { avatarUrl?: string };
+  size?: number;
+}) {
+  if (user.avatarUrl) {
+    return (
+      <img
+        src={user.avatarUrl}
+        alt={user.name}
+        title={user.name}
+        className="shrink-0 rounded-md object-cover"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
   return (
     <span
       className="inline-flex shrink-0 items-center justify-center rounded-md font-bold text-white select-none"

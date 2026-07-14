@@ -11,6 +11,8 @@ export interface User {
   orgId?: string;
   /** アバターの背景色（Tailwindクラスではなく hex） */
   color: string;
+  /** アバター画像（モックでは dataURL） */
+  avatarUrl?: string;
   /** 無効化済み */
   disabled?: boolean;
 }

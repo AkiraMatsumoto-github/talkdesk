@@ -63,6 +63,33 @@ function unreadOfThread(userId: string, threadId: string): { count: number; ment
   return { count: unread.filter((m) => !m.system).length, mention };
 }
 
+/** FR-H7: 自分の投稿のみ・24時間以内（API層のenforce契約をモックにも持たせる） */
+function assertOwnRecentMessage(m: Message, byUserId: string, op: string) {
+  if (m.authorId !== byUserId) throw new Error(`自分の投稿以外は${op}できません`);
+  if (Date.now() - new Date(m.createdAt).getTime() >= 24 * 60 * 60 * 1000) {
+    throw new Error(`投稿から24時間を超えたため${op}できません`);
+  }
+}
+
+/** FR-T2: ロール別のステータス遷移制約 */
+const STATUS_TRANSITIONS: Record<"assistant" | "client", [ThreadStatus, ThreadStatus][]> = {
+  assistant: [
+    ["open", "in_progress"],
+    ["in_progress", "awaiting_review"],
+  ],
+  client: [
+    ["awaiting_review", "done"],
+    ["awaiting_review", "in_progress"],
+  ],
+};
+
+function assertStatusTransition(actor: User, from: ThreadStatus, to: ThreadStatus) {
+  const side = actor.role === "assistant" ? "assistant" : actor.role === "member" || actor.role === "admin" ? "client" : null;
+  if (!side || !STATUS_TRANSITIONS[side].some(([f, t]) => f === from && t === to)) {
+    throw new Error(`「${STATUS_LABEL[from]}」から「${STATUS_LABEL[to]}」への変更は許可されていません`);
+  }
+}
+
 function addAudit(actorId: string, action: string, detail: string, orgId?: string) {
   db.auditLogs.unshift({ id: genId("al"), actorId, action, detail, orgId, createdAt: new Date().toISOString() });
 }
@@ -118,6 +145,16 @@ export const mockApi: TalkdeskApi = {
   },
   async getUser(id) {
     return db.users.find((u) => u.id === id);
+  },
+  async updateProfile(userId, patch) {
+    await delay();
+    const u = db.users.find((x) => x.id === userId);
+    if (!u) throw new Error("ユーザーが見つかりません");
+    if (patch.name !== undefined) u.name = patch.name;
+    if (patch.color !== undefined) u.color = patch.color;
+    if (patch.avatarUrl !== undefined) u.avatarUrl = patch.avatarUrl;
+    notify({ type: "change" });
+    return u;
   },
 
   // 企業
@@ -203,6 +240,7 @@ export const mockApi: TalkdeskApi = {
     const th = db.threads.find((t) => t.id === threadId);
     const actor = db.users.find((u) => u.id === byUserId);
     if (!th || !actor) return;
+    assertStatusTransition(actor, th.status, status);
     th.status = status;
     addSystemMessage(threadId, byUserId, `${actor.name}さんがステータスを「${STATUS_LABEL[status]}」に変更しました`);
     touchThread(threadId);
@@ -278,18 +316,20 @@ export const mockApi: TalkdeskApi = {
     }
     return msg;
   },
-  async editMessage(messageId, body) {
+  async editMessage(messageId, body, byUserId) {
     await delay();
     const m = db.messages.find((x) => x.id === messageId);
     if (!m) return;
+    assertOwnRecentMessage(m, byUserId, "編集");
     m.body = body;
     m.editedAt = new Date().toISOString();
     notify({ type: "change" });
   },
-  async deleteMessage(messageId) {
+  async deleteMessage(messageId, byUserId) {
     await delay();
     const m = db.messages.find((x) => x.id === messageId);
     if (!m) return;
+    assertOwnRecentMessage(m, byUserId, "削除");
     m.deleted = true;
     m.body = "";
     m.attachments = [];
@@ -317,7 +357,8 @@ export const mockApi: TalkdeskApi = {
     const msgs = threadMessages(threadId);
     const rs = db.readStates.find((r) => r.userId === userId && r.threadId === threadId);
     const lastIdx = rs?.lastReadMessageId ? msgs.findIndex((m) => m.id === rs.lastReadMessageId) : -1;
-    return msgs.slice(lastIdx + 1).find((m) => m.authorId !== userId)?.id;
+    // 未読カウント（unreadOfThread）と同じ条件: 他者の通常メッセージのみ
+    return msgs.slice(lastIdx + 1).find((m) => m.authorId !== userId && !m.system && !m.deleted)?.id;
   },
   async markThreadRead(userId, threadId) {
     advanceReadState(userId, threadId);

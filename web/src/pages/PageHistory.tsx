@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import type { PageRevision } from "../api/types";
-import { useApiData } from "../hooks/useApiData";
+import { useApiData, useUsersById } from "../hooks/useApiData";
 import { useAuth } from "../stores/auth";
 import { useToasts } from "../stores/toast";
 import { useOrgCtx } from "../layout/OrgContext";
@@ -22,12 +22,13 @@ export function PageHistory() {
   const pushToast = useToasts((s) => s.push);
 
   const page = useApiData(() => api.getPage(pageId!), [pageId]);
-  const users = useApiData(() => api.listChannelViewers(channel.id), [channel.id]);
+  // 各revの編集者は getUser ベースで解決（権限剥奪・無効化済みでも履歴の編集者名が残る）
+  const usersById = useUsersById(page ? [page.updatedBy, ...page.revisions.map((r) => r.authorId)] : []);
   const [selectedRev, setSelectedRev] = useState<number | null>(null);
   const [confirmRestore, setConfirmRestore] = useState<PageRevision | null>(null);
   const [restoring, setRestoring] = useState(false);
 
-  if (page === undefined || !users) return <div className="flex-1"><SkeletonList /></div>;
+  if (page === undefined || !usersById) return <div className="flex-1"><SkeletonList /></div>;
   if (!page || page.channelId !== channel.id) return <NotFoundPane />;
 
   const base = `${basePath}/channels/${channel.id}/pages`;
@@ -36,7 +37,7 @@ export function PageHistory() {
   const current: PageRevision = { rev: page.rev, title: page.title, body: page.body, authorId: page.updatedBy, savedAt: page.updatedAt };
   const revisions = [current, ...[...page.revisions].sort((a, b) => b.rev - a.rev)];
   const selected = revisions.find((r) => r.rev === (selectedRev ?? page.rev)) ?? current;
-  const nameOf = (id: string) => users.find((u) => u.id === id)?.name ?? "不明";
+  const nameOf = (id: string) => usersById[id]?.name ?? "不明";
 
   const restore = async (r: PageRevision) => {
     setRestoring(true);

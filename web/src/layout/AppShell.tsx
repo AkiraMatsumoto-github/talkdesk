@@ -4,7 +4,6 @@ import { api } from "../api";
 import { useApiData } from "../hooks/useApiData";
 import { useAuth } from "../stores/auth";
 import { useToasts } from "../stores/toast";
-import { startDemoFeed } from "../mocks/demo";
 import { OrgContext, type OrgCtx } from "./OrgContext";
 import { ChannelColumn } from "./ChannelColumn";
 import { OrgRail } from "./OrgRail";
@@ -22,14 +21,6 @@ import { PageHistory } from "../pages/PageHistory";
 import { SettingsProfile, SettingsNotifications } from "../pages/Settings";
 import { AdminMembers } from "../pages/AdminMembers";
 import { AdminPermissions } from "../pages/AdminPermissions";
-
-/** デモ新着フィードの開始（アプリ全体で1回） */
-let demoStarted = false;
-function ensureDemoFeed() {
-  if (demoStarted) return;
-  demoStarted = true;
-  startDemoFeed(() => useAuth.getState().user?.id);
-}
 
 export function AppShell() {
   const user = useAuth((s) => s.user);
@@ -52,10 +43,6 @@ export function AppShell() {
     () => (user?.role === "assistant" ? api.listAssignedOrgs(user.id) : Promise.resolve(undefined)),
     [user?.id, user?.role],
   );
-
-  useEffect(() => {
-    ensureDemoFeed();
-  }, []);
 
   // アシスタント: 表示中の企業を記憶（RAIL-2 / LOGIN-3）
   useEffect(() => {

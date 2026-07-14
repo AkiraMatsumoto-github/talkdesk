@@ -3,6 +3,7 @@
 
 import type { Attachment } from "../api/types";
 import { db, genId, notify } from "./db";
+import { canViewChannel } from "./mockApi";
 
 interface Script {
   threadId: string;
@@ -77,17 +78,20 @@ export function startDemoFeed(getUserId: () => string | undefined): () => void {
     };
     db.messages.push(msg);
     th.updatedAt = msg.createdAt;
-    db.notifications.unshift({
-      id: genId("nt"),
-      userId,
-      kind: "message",
-      text: `#${ch.name} に新着メッセージがあります`,
-      orgId: ch.orgId,
-      channelId: ch.id,
-      threadId: th.id,
-      read: false,
-      createdAt: msg.createdAt,
-    });
+    // 通知は現在ユーザーが閲覧権限を持つチャンネルの場合のみ積む（CH-2/FR-H1/ROUTE-2）
+    if (canViewChannel(me, ch)) {
+      db.notifications.unshift({
+        id: genId("nt"),
+        userId,
+        kind: "message",
+        text: `#${ch.name} に新着メッセージがあります`,
+        orgId: ch.orgId,
+        channelId: ch.id,
+        threadId: th.id,
+        read: false,
+        createdAt: msg.createdAt,
+      });
+    }
     notify({ type: "message", message: msg, channelId: ch.id, orgId: ch.orgId });
   }, 40_000);
   return () => clearInterval(timer);

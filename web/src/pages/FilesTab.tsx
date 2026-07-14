@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
-import { useApiData } from "../hooks/useApiData";
+import { useApiData, useUsersById } from "../hooks/useApiData";
 import { useToasts } from "../stores/toast";
 import { useOrgCtx } from "../layout/OrgContext";
 import { useChannel } from "./ChannelLayout";
@@ -25,9 +25,10 @@ export function FilesTab() {
   const pushToast = useToasts((s) => s.push);
 
   const files = useApiData(() => api.listFiles(channel.id), [channel.id]);
-  const users = useApiData(() => api.listChannelViewers(channel.id), [channel.id]);
+  // 投稿者の表示は getUser ベース（権限剥奪・無効化済みユーザーの過去の添付も投稿者名を表示できる）
+  const usersById = useUsersById((files ?? []).map((f) => f.uploadedBy));
 
-  if (!files || !users) return <div className="flex-1"><SkeletonList /></div>;
+  if (!files || !usersById) return <div className="flex-1"><SkeletonList /></div>;
 
   // FILE-1: ファイル名の部分一致検索
   const filtered = files.filter((f) => f.attachment.name.toLowerCase().includes(query.toLowerCase()));
@@ -61,7 +62,7 @@ export function FilesTab() {
         )}
         <div className="mx-auto max-w-3xl space-y-1.5">
           {filtered.map((f) => {
-            const uploader = users.find((u) => u.id === f.uploadedBy);
+            const uploader = usersById[f.uploadedBy];
             return (
               <div
                 key={f.attachment.id}
@@ -75,9 +76,9 @@ export function FilesTab() {
                     <span className="shrink-0 text-xs text-slate-400">{formatDateTime(f.uploadedAt)}</span>
                     {uploader && <span className="shrink-0 text-xs text-slate-500">{uploader.name}</span>}
                   </div>
-                  {/* FILE-2: 元スレッドへのリンク */}
+                  {/* FILE-2: 元スレッドの該当メッセージ位置へ */}
                   <Link
-                    to={`${basePath}/channels/${channel.id}/threads/${f.thread.id}`}
+                    to={`${basePath}/channels/${channel.id}/threads/${f.thread.id}?m=${f.message.id}`}
                     className="mt-0.5 inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline"
                   >
                     └ {f.thread.type === "request" ? "🧵" : "💬"} {f.thread.title}

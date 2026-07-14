@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useBlocker } from "react-router-dom";
 import { api } from "../api";
 import { useApiData } from "../hooks/useApiData";
 import { useAuth } from "../stores/auth";
@@ -31,13 +32,19 @@ export function AdminPermissions() {
 
   const dirty = Object.entries(edits).filter(([k, v]) => original.has(k) !== v);
 
-  // PERM-2: 未保存で離脱時の警告
+  // PERM-2: 未保存で離脱時の警告（リロード・タブ閉じ）
   useEffect(() => {
     if (dirty.length === 0) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => e.preventDefault();
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [dirty.length]);
+
+  // PERM-2: SPA内遷移もブロックして確認ダイアログを出す
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      dirty.length > 0 && currentLocation.pathname !== nextLocation.pathname,
+  );
 
   if (!members || !channels || !grants) return <div className="flex-1"><SkeletonList /></div>;
 
@@ -172,6 +179,24 @@ export function AdminPermissions() {
           </ul>
           <p className="mt-3 text-xs text-slate-500">
             権限を外されたメンバーの画面からは、該当チャンネルが即時に見えなくなります。
+          </p>
+        </Modal>
+      )}
+
+      {/* PERM-2: 未保存のままの離脱確認 */}
+      {blocker.state === "blocked" && (
+        <Modal
+          title="未保存の変更があります"
+          onClose={() => blocker.reset()}
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => blocker.reset()}>編集を続ける</Button>
+              <Button variant="danger" onClick={() => blocker.proceed()}>破棄して移動</Button>
+            </>
+          }
+        >
+          <p className="text-sm">
+            保存していない権限変更が{dirty.length}件あります。このページを離れると変更内容は失われます。
           </p>
         </Modal>
       )}

@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import type { Attachment, Message, ThreadStatus, User } from "../api/types";
-import { useApiData } from "../hooks/useApiData";
+import { useApiData, useUsersById } from "../hooks/useApiData";
 import { useAuth } from "../stores/auth";
 import { useToasts } from "../stores/toast";
 import { useOrgCtx } from "../layout/OrgContext";
@@ -13,9 +13,9 @@ import { NotFoundPane } from "./NotFound";
 
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** 本文中の @メンション をハイライト（TH-10） */
-function renderBody(body: string, viewers: User[]): ReactNode {
-  const names = viewers.map((v) => v.name).sort((a, b) => b.length - a.length);
+/** 本文中の @メンション をハイライト */
+function renderBody(body: string, users: User[]): ReactNode {
+  const names = users.map((v) => v.name).sort((a, b) => b.length - a.length);
   if (names.length === 0) return body;
   const re = new RegExp(`(@(?:${names.map(escapeRe).join("|")}))`, "g");
   const parts = body.split(re);
@@ -47,7 +47,14 @@ export function ThreadView() {
 
   const thread = useApiData(() => api.getThread(threadId!), [threadId]);
   const messages = useApiData(() => api.listMessages(threadId!), [threadId]);
+  // viewers はメンション補完（TH-10）専用。表示用のユーザー解決は usersById（権限剥奪・無効化済みでも解決可能）
   const viewers = useApiData(() => api.listChannelViewers(channel.id), [channel.id]);
+  const usersById = useUsersById((messages ?? []).flatMap((m) => [m.authorId, ...m.readBy]));
+
+  // FILE-2: ファイルタブからの遷移で該当メッセージ位置へスクロール
+  const [searchParams] = useSearchParams();
+  const targetMsgId = searchParams.get("m");
+  const [flashId, setFlashId] = useState<string | null>(null);
 
   // TH-8: 「ここから未読」ライン（スレッドを開いた時点の位置で固定）
   const [firstUnreadId, setFirstUnreadId] = useState<string | null | undefined>(undefined);
@@ -110,7 +117,19 @@ export function ThreadView() {
     return () => io.disconnect();
   }, [threadId, user.id, firstUnreadId, messages?.length]);
 
-  if (thread === undefined || !messages || !viewers || firstUnreadId === undefined) {
+  // FILE-2: ?m=<messageId> で該当メッセージへスクロール＋ハイライト
+  useEffect(() => {
+    if (!messages || !targetMsgId) return;
+    const el = document.getElementById(`msg-${targetMsgId}`);
+    if (!el) return;
+    el.scrollIntoView({ block: "center" });
+    initialScrolled.current = true;
+    setFlashId(targetMsgId);
+    const t = setTimeout(() => setFlashId(null), 2500);
+    return () => clearTimeout(t);
+  }, [messages, targetMsgId]);
+
+  if (thread === undefined || !messages || !viewers || !usersById || firstUnreadId === undefined) {
     return <SkeletonList rows={6} />;
   }
   if (!thread || thread.channelId !== channel.id) return <NotFoundPane />;
@@ -136,9 +155,15 @@ export function ThreadView() {
 
   const doChangeStatus = async (to: ThreadStatus) => {
     setChangingStatus(true);
-    await api.changeStatus(thread.id, to, user.id);
-    setChangingStatus(false);
-    setConfirmStatus(null);
+    try {
+      await api.changeStatus(thread.id, to, user.id);
+      setConfirmStatus(null);
+    } catch (e) {
+      // API層のenforceで拒否された場合（STATE-2）
+      pushToast({ title: e instanceof Error ? e.message : "ステータスを変更できませんでした", kind: "error" });
+    } finally {
+      setChangingStatus(false);
+    }
   };
 
   const send = async (body: string, attachments: Attachment[]) => {
@@ -224,9 +249,8 @@ export function ThreadView() {
         {thread.type === "request" && thread.body && (
           <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-[13px] leading-relaxed text-slate-600">
             <span className="mr-1 font-bold text-slate-500">依頼内容:</span>
-            <span className={bodyExpanded ? "" : "line-clamp-2 inline"}>
-              {bodyExpanded ? thread.body : thread.body.length > 100 ? `${thread.body.slice(0, 100)}…` : thread.body}
-            </span>
+            {/* 長文は100文字で切って「すべて表示」（line-clamp併用はinlineで効かないため文字数で統一） */}
+            <span>{bodyExpanded || thread.body.length <= 100 ? thread.body : `${thread.body.slice(0, 100)}…`}</span>
             {thread.body.length > 100 && (
               <button onClick={() => setBodyExpanded((v) => !v)} className="ml-1 text-indigo-600 hover:underline">
                 {bodyExpanded ? "折りたたむ" : "すべて表示"}
@@ -247,7 +271,14 @@ export function ThreadView() {
                 <span className="h-px flex-1 bg-rose-300" />
               </div>
             )}
-            <MessageItem message={m} me={user} viewers={viewers} archived={channel.archived} pushToast={pushToast} />
+            <MessageItem
+              message={m}
+              me={user}
+              usersById={usersById}
+              archived={channel.archived}
+              flash={m.id === flashId}
+              pushToast={pushToast}
+            />
           </div>
         ))}
         {pending.map((p) => (
@@ -300,14 +331,17 @@ export function ThreadView() {
 function MessageItem({
   message: m,
   me,
-  viewers,
+  usersById,
   archived,
+  flash,
   pushToast,
 }: {
   message: Message;
   me: User;
-  viewers: User[];
+  /** 表示用のユーザー解決（権限剥奪・無効化済みユーザーも含む） */
+  usersById: Record<string, User>;
   archived: boolean;
+  flash?: boolean;
   pushToast: (t: { title: string; body?: string; kind?: "info" | "error" | "success" }) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -315,7 +349,7 @@ function MessageItem({
   const [editText, setEditText] = useState(m.body);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const author = useMemo(() => viewers.find((v) => v.id === m.authorId), [viewers, m.authorId]);
+  const author = usersById[m.authorId];
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -329,7 +363,7 @@ function MessageItem({
   // TH-7: システムメッセージ
   if (m.system) {
     return (
-      <div className="my-2 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
+      <div id={`msg-${m.id}`} className="my-2 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
         <span>⚙</span>
         {m.body}
         <span>{formatDateTime(m.createdAt)}</span>
@@ -340,7 +374,7 @@ function MessageItem({
   // TH-9: 削除痕跡（FR-H7）
   if (m.deleted) {
     return (
-      <div className="my-2 text-xs text-slate-400 italic">
+      <div id={`msg-${m.id}`} className="my-2 text-xs text-slate-400 italic">
         <span className="mr-2">🚫</span>このメッセージは削除されました
       </div>
     );
@@ -348,7 +382,8 @@ function MessageItem({
 
   const mine = m.authorId === me.id;
   const editable = within24h(m.createdAt);
-  const readers = m.readBy.map((id) => viewers.find((v) => v.id === id)).filter((u): u is User => !!u);
+  const readers = m.readBy.map((id) => usersById[id]).filter((u): u is User => !!u);
+  const allUsers = Object.values(usersById);
 
   const download = async (a: Attachment) => {
     const url = await api.requestDownloadUrl(a.id);
@@ -414,7 +449,14 @@ function MessageItem({
             <div className="mt-1.5 flex justify-end gap-2">
               <Button variant="secondary" onClick={() => setEditing(false)} className="px-2 py-1 text-xs">キャンセル</Button>
               <Button
-                onClick={async () => { await api.editMessage(m.id, editText.trim(), me.id); setEditing(false); }}
+                onClick={async () => {
+                  try {
+                    await api.editMessage(m.id, editText.trim(), me.id);
+                    setEditing(false);
+                  } catch (e) {
+                    pushToast({ title: e instanceof Error ? e.message : "編集できませんでした", kind: "error" });
+                  }
+                }}
                 disabled={!editText.trim()}
                 className="px-2 py-1 text-xs"
               >
@@ -423,7 +465,7 @@ function MessageItem({
             </div>
           </div>
         ) : (
-          <div className="whitespace-pre-wrap">{renderBody(m.body, viewers)}</div>
+          <div className="whitespace-pre-wrap">{renderBody(m.body, allUsers)}</div>
         )}
 
         {/* TH-5: 添付（画像はインラインプレビュー） */}
@@ -476,7 +518,19 @@ function MessageItem({
           footer={
             <>
               <Button variant="secondary" onClick={() => setConfirmDelete(false)}>キャンセル</Button>
-              <Button variant="danger" onClick={async () => { await api.deleteMessage(m.id, me.id); setConfirmDelete(false); }}>削除する</Button>
+              <Button
+                variant="danger"
+                onClick={async () => {
+                  try {
+                    await api.deleteMessage(m.id, me.id);
+                    setConfirmDelete(false);
+                  } catch (e) {
+                    pushToast({ title: e instanceof Error ? e.message : "削除できませんでした", kind: "error" });
+                  }
+                }}
+              >
+                削除する
+              </Button>
             </>
           }
         >
@@ -488,7 +542,12 @@ function MessageItem({
   );
 
   return (
-    <div className={`my-2.5 flex gap-2 ${mine ? "justify-end" : ""}`}>
+    <div
+      id={`msg-${m.id}`}
+      className={`my-2.5 flex gap-2 rounded-xl transition-colors ${mine ? "justify-end" : ""} ${
+        flash ? "bg-amber-100/70 ring-2 ring-amber-300" : ""
+      }`}
+    >
       {!mine && author && <Avatar user={author} size={32} />}
       {bubble}
     </div>

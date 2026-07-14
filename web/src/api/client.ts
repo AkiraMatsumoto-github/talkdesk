@@ -56,6 +56,8 @@ export interface TalkdeskApi {
   listDemoUsers(): Promise<User[]>;
   login(email: string, password: string): Promise<User>;
   getUser(id: string): Promise<User | undefined>;
+  /** SET-1: 表示名・アバターの変更（db側にも反映し全画面の表示が追随する） */
+  updateProfile(userId: string, patch: { name?: string; color?: string; avatarUrl?: string }): Promise<User>;
 
   // --- 企業・アサイン ---
   getOrg(orgId: string): Promise<Organization | undefined>;

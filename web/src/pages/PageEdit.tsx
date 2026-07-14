@@ -10,16 +10,20 @@ import { Markdown } from "../components/Markdown";
 import { Button, SkeletonList } from "../components/ui";
 import { NotFoundPane } from "./NotFound";
 
-/** §4.2 ページ編集（KB-3: 左右分割ライブプレビュー） */
+/**
+ * §4.2 ページ編集（KB-3: 左右分割ライブプレビュー）
+ * pageId === "new" は新規作成モード。保存時に初めて createPage する（破棄しても空ページを残さない）。
+ */
 export function PageEdit() {
   const { pageId } = useParams<{ pageId: string }>();
+  const isNew = pageId === "new";
   const user = useAuth((s) => s.user)!;
   const { channel } = useChannel();
   const { basePath } = useOrgCtx();
   const navigate = useNavigate();
   const pushToast = useToasts((s) => s.push);
 
-  const page = useApiData(() => api.getPage(pageId!), [pageId]);
+  const page = useApiData(() => (isNew ? Promise.resolve(null) : api.getPage(pageId!)), [pageId, isNew]);
   const [title, setTitle] = useState<string | null>(null);
   const [body, setBody] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -27,11 +31,11 @@ export function PageEdit() {
   const [draftRestored, setDraftRestored] = useState(false);
   const taRef = useRef<HTMLTextAreaElement>(null);
 
-  const draftKey = `talkdesk-draft-${pageId}`;
+  const draftKey = isNew ? `talkdesk-draft-new-${channel.id}` : `talkdesk-draft-${pageId}`;
 
   // 初期値 + ローカル下書き復元（KB-7の下書き保存部分）
   useEffect(() => {
-    if (!page || title !== null) return;
+    if (page === undefined || title !== null) return;
     const draft = localStorage.getItem(draftKey);
     if (draft) {
       try {
@@ -44,8 +48,8 @@ export function PageEdit() {
         /* fallthrough */
       }
     }
-    setTitle(page.title);
-    setBody(page.body);
+    setTitle(page?.title ?? "");
+    setBody(page?.body ?? "");
   }, [page, title, draftKey]);
 
   // 自動下書き保存
@@ -56,22 +60,37 @@ export function PageEdit() {
   }, [title, body, draftKey]);
 
   if (page === undefined) return <div className="flex-1"><SkeletonList /></div>;
-  if (!page || page.channelId !== channel.id || channel.archived) return <NotFoundPane />;
+  if (channel.archived) return <NotFoundPane />;
+  if (!isNew && (!page || page.channelId !== channel.id)) return <NotFoundPane />;
   if (title === null || body === null) return <div className="flex-1"><SkeletonList /></div>;
 
   const base = `${basePath}/channels/${channel.id}/pages`;
 
   const save = async () => {
     setSaving(true);
-    await api.savePage(page.id, title.trim() || "無題のページ", body, user.id);
-    localStorage.removeItem(draftKey);
-    pushToast({ title: "ページを保存しました", kind: "success" });
-    navigate(`${base}/${page.id}`);
+    try {
+      if (isNew) {
+        // 保存時に初めて作成する
+        const created = await api.createPage(channel.id, title.trim(), body, user.id);
+        localStorage.removeItem(draftKey);
+        pushToast({ title: "ページを作成しました", kind: "success" });
+        navigate(`${base}/${created.id}`);
+      } else {
+        await api.savePage(page!.id, title.trim(), body, user.id);
+        localStorage.removeItem(draftKey);
+        pushToast({ title: "ページを保存しました", kind: "success" });
+        navigate(`${base}/${page!.id}`);
+      }
+    } catch (e) {
+      pushToast({ title: e instanceof Error ? e.message : "保存に失敗しました", kind: "error" });
+      setSaving(false);
+    }
   };
 
   const discard = () => {
     localStorage.removeItem(draftKey);
-    navigate(`${base}/${page.id}`);
+    // 新規は何も作成せず一覧へ戻る（空ページを残さない）
+    navigate(isNew ? base : `${base}/${page!.id}`);
   };
 
   // KB-6: 画像ドラッグ&ドロップ（モック: dataURLで埋め込み）
@@ -101,10 +120,13 @@ export function PageEdit() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="ページタイトル"
+          autoFocus={isNew}
           className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-bold outline-none focus:border-indigo-500"
         />
         <Button variant="secondary" onClick={discard}>破棄</Button>
-        <Button onClick={save} loading={saving} disabled={!title.trim()}>保存</Button>
+        <Button onClick={save} loading={saving} disabled={!title.trim()}>
+          {isNew ? "作成" : "保存"}
+        </Button>
       </div>
       {draftRestored && (
         <div className="flex items-center gap-2 border-b border-sky-200 bg-sky-50 px-4 py-1.5 text-xs text-sky-800">
@@ -113,8 +135,8 @@ export function PageEdit() {
             className="font-bold underline"
             onClick={() => {
               localStorage.removeItem(draftKey);
-              setTitle(page.title);
-              setBody(page.body);
+              setTitle(page?.title ?? "");
+              setBody(page?.body ?? "");
               setDraftRestored(false);
             }}
           >
