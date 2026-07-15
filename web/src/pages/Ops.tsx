@@ -1,13 +1,16 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Link, Navigate, NavLink, Outlet, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
-import type { Message, Thread, User } from "../api/types";
-import { useApiData, useUsersById } from "../hooks/useApiData";
+import type { User } from "../api/types";
+import { useApiData } from "../hooks/useApiData";
 import { useAuth } from "../stores/auth";
 import { useToasts } from "../stores/toast";
-import { AlertTriangle, Archive, ArrowLeft, Ban, Building2, ChevronRight, FolderOpen, Menu, Paperclip, Plus, RefreshCw, ShieldCheck, Users } from "lucide-react";
-import { Avatar, Button, EmptyState, Modal, SkeletonList, StatusBadge, ThreadTypeIcon } from "../components/ui";
-import { formatBytes, formatDateTime } from "../utils/format";
+import { AlertTriangle, Archive, ArrowLeft, Building2, ChevronRight, Menu, Plus, ShieldCheck, Users } from "lucide-react";
+import { Avatar, Button, Modal, SkeletonList } from "../components/ui";
+import { formatDateTime } from "../utils/format";
+import { OrgContext, type OrgCtx } from "../layout/OrgContext";
+import { ThreadsPane } from "./ThreadList";
+import type { ChannelCtx } from "./ChannelLayout";
 import { NotFoundPane } from "./NotFound";
 
 /** §7 運営管理画面（本体アプリ AppShell と同じシェル構造に揃える） */
@@ -98,19 +101,28 @@ export function OpsRoutes() {
         >
           <OpsSidebar />
         </div>
-        <div className="min-w-0 flex-1 overflow-y-auto bg-slate-50/50">
+        <div className="flex min-h-0 min-w-0 flex-1">
           <Routes>
             <Route index element={<Navigate to="orgs" replace />} />
-            <Route path="orgs" element={<OpsOrgs />} />
-            <Route path="orgs/:orgId" element={<OpsOrgDetail />} />
-            <Route path="orgs/:orgId/channels/:channelId" element={<OpsChannelView />} />
-            <Route path="assistants" element={<OpsAssistants />} />
+            <Route path="orgs" element={<OpsScroll><OpsOrgs /></OpsScroll>} />
+            <Route path="orgs/:orgId" element={<OpsScroll><OpsOrgDetail /></OpsScroll>} />
+            <Route path="orgs/:orgId/channels/:channelId" element={<OpsChannelLayout />}>
+              {/* 依頼者・アシスタントと同じ ThreadsPane を読み取り専用で再利用 */}
+              <Route index element={<ThreadsPane />} />
+              <Route path="threads/:threadId" element={<ThreadsPane />} />
+            </Route>
+            <Route path="assistants" element={<OpsScroll><OpsAssistants /></OpsScroll>} />
             <Route path="*" element={<NotFoundPane />} />
           </Routes>
         </div>
       </div>
     </div>
   );
+}
+
+/** 一覧系ページの縦スクロールラッパー（チャンネルビューは自前で全高を扱う） */
+function OpsScroll({ children }: { children: ReactNode }) {
+  return <div className="min-w-0 flex-1 overflow-y-auto bg-slate-50/50">{children}</div>;
 }
 
 /** 運営メニューのサイドバー（ChannelColumn と同じ見た目） */
@@ -352,12 +364,13 @@ function OpsOrgDetail() {
   );
 }
 
-/** OPS-3: 読み取り専用チャンネルビュー */
-function OpsChannelView() {
+/** OPS-3: 読み取り専用チャンネルビュー。
+    依頼者・アシスタントと同じ ChannelLayout/ThreadsPane/ThreadView を readOnly で再利用する。 */
+function OpsChannelLayout() {
   const { orgId, channelId } = useParams<{ orgId: string; channelId: string }>();
   const user = useAuth((s) => s.user)!;
+  const org = useApiData(() => api.getOrg(orgId!), [orgId]);
   const channel = useApiData(() => api.getChannel(channelId!), [channelId]);
-  const threads = useApiData(() => api.listThreads(channelId!), [channelId]);
   const audited = useRef(false);
 
   // FR-O3: 閲覧の事実を監査ログに記録
@@ -367,74 +380,36 @@ function OpsChannelView() {
     void api.recordAudit(user.id, "運営閲覧", `運営管理者が #${channel.name} を閲覧`, orgId);
   }, [channel, user.id, orgId]);
 
-  if (channel === undefined || !threads) return <SkeletonList />;
-  if (!channel || channel.orgId !== orgId) return <NotFoundPane />;
+  if (org === undefined || channel === undefined) return <div className="flex-1"><SkeletonList /></div>;
+  if (!org || !channel || channel.orgId !== orgId) return <NotFoundPane />;
+
+  const ctx: OrgCtx = { org, basePath: `/ops/orgs/${orgId}`, isAssistantView: false, readOnly: true };
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-6">
-      <Link to={`/ops/orgs/${orgId}`} className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline"><ArrowLeft size={13} /> 企業詳細へ</Link>
-      <h1 className="mt-2 text-lg font-bold">
-        <span className="text-slate-400"># </span>
-        {channel.name}
-      </h1>
-      <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-        <ShieldCheck size={14} className="shrink-0" /> 読み取り専用ビューです。この閲覧は監査ログに記録されました。
-      </div>
-      <div className="mt-4 space-y-2">
-        {threads.length === 0 && <EmptyState icon={<FolderOpen size={40} strokeWidth={1.5} />} title="スレッドはありません" />}
-        {threads.map((t) => (
-          <OpsThreadItem key={t.id} thread={t} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function OpsThreadItem({ thread }: { thread: Thread }) {
-  const [open, setOpen] = useState(false);
-  const messages = useApiData<Message[] | undefined>(
-    () => (open ? api.listMessages(thread.id) : Promise.resolve(undefined)),
-    [open, thread.id],
-  );
-  // #2と同方針: 投稿者は getUser ベースで解決（権限剥奪・無効化済みユーザーも「不明」にならない）
-  const usersById = useUsersById((messages ?? []).map((m) => m.authorId));
-  const nameOf = (id: string) => usersById?.[id]?.name ?? "不明";
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-2 px-4 py-3 text-left">
-        <ChevronRight size={14} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
-        <ThreadTypeIcon type={thread.type} size={15} className="text-slate-500" />
-        <span className="min-w-0 flex-1 truncate text-sm font-bold">{thread.title}</span>
-        {thread.type === "request" && <StatusBadge status={thread.status} size="sm" />}
-        <span className="text-xs text-slate-400">{formatDateTime(thread.updatedAt)}</span>
-      </button>
-      {open && (
-        <div className="border-t border-slate-100 px-4 py-3">
-          {thread.body && <p className="mb-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">依頼内容: {thread.body}</p>}
-          {(messages ?? []).map((m) => (
-            <div key={m.id} className="border-b border-slate-50 py-2 text-sm last:border-b-0">
-              {m.system ? (
-                <span className="inline-flex items-center gap-1 text-xs text-slate-400"><RefreshCw size={11} /> {m.body}</span>
-              ) : m.deleted ? (
-                <span className="inline-flex items-center gap-1 text-xs text-slate-400 italic"><Ban size={11} /> このメッセージは削除されました</span>
-              ) : (
-                <>
-                  <span className="mr-2 text-xs font-bold text-slate-500">{nameOf(m.authorId)}</span>
-                  <span className="mr-2 text-[11px] text-slate-400">{formatDateTime(m.createdAt)}</span>
-                  <span className="block whitespace-pre-wrap">{m.body}</span>
-                  {m.attachments.map((a) => (
-                    <span key={a.id} className="mt-1 inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-                      <Paperclip size={11} /> {a.name}（{formatBytes(a.size)}）
-                    </span>
-                  ))}
-                </>
-              )}
-            </div>
-          ))}
-          {messages && messages.length === 0 && <p className="text-xs text-slate-400">メッセージはありません。</p>}
+    <OrgContext.Provider value={ctx}>
+      <div className="flex min-w-0 flex-1 flex-col bg-white">
+        <div className="shrink-0 border-b border-slate-200 px-4 py-2">
+          <Link to={`/ops/orgs/${orgId}`} className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline">
+            <ArrowLeft size={13} /> 企業詳細へ
+          </Link>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <h1 className="flex items-baseline gap-1 text-base font-bold">
+              <span className="text-slate-400">#</span>
+              {channel.name}
+            </h1>
+            {channel.archived && (
+              <span className="inline-flex items-center gap-0.5 text-[11px] text-slate-400"><Archive size={11} /> アーカイブ</span>
+            )}
+            <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-2 py-0.5 text-[11px] text-amber-800">
+              <ShieldCheck size={11} className="shrink-0" /> 読み取り専用（閲覧は監査ログに記録）
+            </span>
+          </div>
         </div>
-      )}
-    </div>
+        <div className="flex min-h-0 flex-1">
+          <Outlet context={{ channel } satisfies ChannelCtx} />
+        </div>
+      </div>
+    </OrgContext.Provider>
   );
 }
 

@@ -43,7 +43,7 @@ export function ThreadView() {
   const { threadId } = useParams<{ threadId: string }>();
   const user = useAuth((s) => s.user)!;
   const { channel } = useChannel();
-  const { basePath } = useOrgCtx();
+  const { basePath, readOnly } = useOrgCtx();
   const pushToast = useToasts((s) => s.push);
 
   const thread = useApiData(() => api.getThread(threadId!), [threadId]);
@@ -60,6 +60,11 @@ export function ThreadView() {
   // TH-8: 「ここから未読」ライン（スレッドを開いた時点の位置で固定）
   const [firstUnreadId, setFirstUnreadId] = useState<string | null | undefined>(undefined);
   useEffect(() => {
+    // 運営の読み取り専用ビューでは未読ラインを出さない（既読カーソルを持たないため）
+    if (readOnly) {
+      setFirstUnreadId(null);
+      return;
+    }
     let alive = true;
     api.getFirstUnreadMessageId(user.id, threadId!).then((id) => {
       if (alive) setFirstUnreadId(id ?? null);
@@ -67,7 +72,7 @@ export function ThreadView() {
     return () => {
       alive = false;
     };
-  }, [threadId, user.id]);
+  }, [threadId, user.id, readOnly]);
 
   const [pending, setPending] = useState<PendingMessage[]>([]);
   const [confirmStatus, setConfirmStatus] = useState<ThreadStatus | null>(null);
@@ -104,9 +109,9 @@ export function ThreadView() {
     }
   }, [messages]);
 
-  // TH-8: 最下部まで見たら既読化（既読カーソル送信）
+  // TH-8: 最下部まで見たら既読化（既読カーソル送信）。運営の読み取り専用では既読を汚染しない
   useEffect(() => {
-    if (!bottomRef.current || firstUnreadId === undefined) return;
+    if (readOnly || !bottomRef.current || firstUnreadId === undefined) return;
     const el = bottomRef.current;
     const io = new IntersectionObserver(
       (entries) => {
@@ -116,7 +121,7 @@ export function ThreadView() {
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [threadId, user.id, firstUnreadId, messages?.length]);
+  }, [threadId, user.id, firstUnreadId, messages?.length, readOnly]);
 
   // FILE-2: ?m=<messageId> で該当メッセージへスクロール＋ハイライト
   useEffect(() => {
@@ -202,9 +207,9 @@ export function ThreadView() {
               {overdue && (
                 <span className="inline-flex items-center gap-0.5 rounded bg-rose-100 px-1.5 py-px text-[11px] font-bold text-rose-600"><AlertTriangle size={11} /> 期日超過</span>
               )}
-              {/* TH-2: 期日のインライン編集 */}
+              {/* TH-2: 期日のインライン編集（運営の読み取り専用では不可） */}
               {thread.type === "request" &&
-                (editingDue && !channel.archived ? (
+                (editingDue && !channel.archived && !readOnly ? (
                   <input
                     type="date"
                     defaultValue={thread.dueDate ?? ""}
@@ -222,13 +227,13 @@ export function ThreadView() {
                   />
                 ) : (
                   <button
-                    onClick={() => !channel.archived && setEditingDue(true)}
-                    className={`text-xs ${overdue ? "font-bold text-rose-600" : "text-slate-500"} ${channel.archived ? "cursor-default" : "rounded px-1 py-0.5 hover:bg-slate-100"}`}
-                    title={channel.archived ? undefined : "期日を編集"}
+                    onClick={() => !channel.archived && !readOnly && setEditingDue(true)}
+                    className={`text-xs ${overdue ? "font-bold text-rose-600" : "text-slate-500"} ${channel.archived || readOnly ? "cursor-default" : "rounded px-1 py-0.5 hover:bg-slate-100"}`}
+                    title={channel.archived || readOnly ? undefined : "期日を編集"}
                   >
                     <span className="inline-flex items-center gap-1">
                       期日: {thread.dueDate ? formatShortDate(thread.dueDate) : "未設定"}
-                      {!channel.archived && <Pencil size={11} />}
+                      {!channel.archived && !readOnly && <Pencil size={11} />}
                     </span>
                   </button>
                 ))}
@@ -303,8 +308,13 @@ export function ThreadView() {
         <div ref={bottomRef} className="h-px" />
       </div>
 
-      {/* 入力欄（アーカイブ済みは非表示 CH-4） */}
-      {!channel.archived && <Composer viewers={viewers.filter((v) => v.id !== user.id)} onSend={send} />}
+      {/* 入力欄（アーカイブ済み・運営の読み取り専用では非表示 CH-4） */}
+      {!channel.archived && !readOnly && <Composer viewers={viewers.filter((v) => v.id !== user.id)} onSend={send} />}
+      {readOnly && (
+        <div className="shrink-0 border-t border-slate-200 bg-slate-50 px-4 py-2 text-center text-xs text-slate-400">
+          運営管理者の読み取り専用ビューです（投稿はできません）
+        </div>
+      )}
 
       {/* TH-1: ステータス変更確認モーダル */}
       {confirmStatus && (

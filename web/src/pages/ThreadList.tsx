@@ -56,7 +56,7 @@ export function ThreadsPane() {
 function ThreadListColumn() {
   const user = useAuth((s) => s.user)!;
   const { channel } = useChannel();
-  const { basePath } = useOrgCtx();
+  const { basePath, readOnly } = useOrgCtx();
   const { threadId: activeId } = useParams<{ threadId?: string }>();
   const [filter, setFilter] = useState<Filter>("all");
   const [doneOpen, setDoneOpen] = useState(false);
@@ -67,7 +67,8 @@ function ThreadListColumn() {
     return Promise.all(
       threads.map(async (thread) => {
         const [unread, messages] = await Promise.all([
-          api.getThreadUnreadCount(user.id, thread.id),
+          // 運営の読み取り専用では既読カーソルを持たないため未読は常に0
+          readOnly ? Promise.resolve(0) : api.getThreadUnreadCount(user.id, thread.id),
           api.listMessages(thread.id),
         ]);
         const lastMessage = [...messages].reverse().find((m) => !m.deleted && !m.system);
@@ -75,7 +76,7 @@ function ThreadListColumn() {
         return { thread, unread, lastMessage, lastAuthorName };
       }),
     );
-  }, [channel.id, user.id]);
+  }, [channel.id, user.id, readOnly]);
 
   if (!rows) return <SkeletonList rows={6} />;
 
@@ -97,7 +98,7 @@ function ThreadListColumn() {
   return (
     <div className="flex h-full flex-col">
       <div className="shrink-0 space-y-2 border-b border-slate-200 p-3">
-        {!channel.archived && (
+        {!channel.archived && !readOnly && (
           <Button onClick={() => setCreateOpen(true)} variant="secondary" className="w-full border-dashed">
             <Plus size={15} /> 新規スレッド
           </Button>
@@ -124,9 +125,9 @@ function ThreadListColumn() {
           <EmptyState
             icon={<FolderOpen size={40} strokeWidth={1.5} />}
             title={filter === "all" ? "スレッドはまだありません" : "該当するスレッドがありません"}
-            description={filter === "all" && !channel.archived ? "最初の依頼を作成しましょう。" : undefined}
+            description={filter === "all" && !channel.archived && !readOnly ? "最初の依頼を作成しましょう。" : undefined}
             action={
-              filter === "all" && !channel.archived ? (
+              filter === "all" && !channel.archived && !readOnly ? (
                 <Button onClick={() => setCreateOpen(true)}><Plus size={15} /> 新規スレッド</Button>
               ) : undefined
             }
