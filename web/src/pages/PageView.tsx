@@ -1,4 +1,5 @@
 import { Link, useParams } from "react-router-dom";
+import { ArrowLeft, BookText } from "lucide-react";
 import { api } from "../api";
 import { useApiData } from "../hooks/useApiData";
 import { useOrgCtx } from "../layout/OrgContext";
@@ -28,9 +29,9 @@ export function PageView() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-3 border-b border-slate-200 px-4 py-3">
-        <Link to={base} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="ページ一覧へ戻る">←</Link>
+        <Link to={base} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="ページ一覧へ戻る"><ArrowLeft size={18} /></Link>
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-base font-bold">📖 {page.title}</h2>
+          <h2 className="flex items-center gap-2 truncate text-base font-bold"><BookText size={17} className="shrink-0 text-slate-400" /> {page.title}</h2>
           <div className="text-xs text-slate-400">
             最終更新: {formatDateTime(page.updatedAt)} {editor?.name}（rev.{page.rev}）
           </div>

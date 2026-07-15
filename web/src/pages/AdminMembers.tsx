@@ -4,6 +4,7 @@ import type { User } from "../api/types";
 import { useApiData } from "../hooks/useApiData";
 import { useAuth } from "../stores/auth";
 import { useToasts } from "../stores/toast";
+import { MoreVertical, Plus } from "lucide-react";
 import { useOrgCtx } from "../layout/OrgContext";
 import { Avatar, Button, Modal, SkeletonList } from "../components/ui";
 import { formatDateTime } from "../utils/format";
@@ -27,7 +28,7 @@ export function AdminMembers() {
       <div className="mx-auto max-w-3xl px-6 py-6">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-bold">メンバー管理</h1>
-          <Button onClick={() => setInviteOpen(true)}>＋ 招待</Button>
+          <Button onClick={() => setInviteOpen(true)}><Plus size={15} /> 招待</Button>
         </div>
         {/* MEM-4: 監査ログの明記 */}
         <p className="mt-1 text-xs text-slate-500">
@@ -159,7 +160,7 @@ function MemberRow({ member: m, me, onDisable }: { member: User; me: User; onDis
       {/* MEM-2: ⋮メニュー */}
       {m.id !== me.id && !m.disabled && (
         <div className="relative" ref={ref}>
-          <button onClick={() => setMenuOpen((v) => !v)} className="rounded p-1.5 text-slate-400 hover:bg-slate-100" aria-label="メンバーメニュー">⋮</button>
+          <button onClick={() => setMenuOpen((v) => !v)} className="rounded p-1.5 text-slate-400 hover:bg-slate-100" aria-label="メンバーメニュー"><MoreVertical size={16} /></button>
           {menuOpen && (
             <div className="absolute right-0 z-30 mt-1 w-48 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
               {m.role === "member" ? (

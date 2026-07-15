@@ -7,7 +7,8 @@ import { useAuth } from "../stores/auth";
 import { useOrgCtx } from "../layout/OrgContext";
 import { useChannel } from "./ChannelLayout";
 import { ThreadView } from "./ThreadView";
-import { Button, EmptyState, Modal, SkeletonList, StatusBadge, UnreadBadge } from "../components/ui";
+import { AlertTriangle, ChevronRight, FolderOpen, MessageSquare, Paperclip, Plus } from "lucide-react";
+import { Button, EmptyState, Modal, SkeletonList, StatusBadge, ThreadTypeIcon, UnreadBadge } from "../components/ui";
 import { formatDateTime, formatShortDate, isOverdue } from "../utils/format";
 
 type Filter = "all" | ThreadStatus | "topic";
@@ -41,7 +42,11 @@ export function ThreadsPane() {
         {threadId ? (
           <ThreadView key={threadId} />
         ) : (
-          <EmptyState icon="🧵" title="スレッドを選択してください" description="左の一覧からスレッドを選ぶと、ここにやり取りが表示されます。" />
+          <EmptyState
+            icon={<MessageSquare size={40} strokeWidth={1.5} />}
+            title="スレッドを選択してください"
+            description="左の一覧からスレッドを選ぶと、ここにやり取りが表示されます。"
+          />
         )}
       </div>
     </>
@@ -94,7 +99,7 @@ function ThreadListColumn() {
       <div className="shrink-0 space-y-2 border-b border-slate-200 p-3">
         {!channel.archived && (
           <Button onClick={() => setCreateOpen(true)} variant="secondary" className="w-full border-dashed">
-            ＋ 新規スレッド
+            <Plus size={15} /> 新規スレッド
           </Button>
         )}
         {/* TL-3: ステータスフィルタ */}
@@ -117,12 +122,12 @@ function ThreadListColumn() {
         {mainRows.length === 0 && doneRows.length === 0 && (
           // STATE-1: 空状態
           <EmptyState
-            icon="🗂"
+            icon={<FolderOpen size={40} strokeWidth={1.5} />}
             title={filter === "all" ? "スレッドはまだありません" : "該当するスレッドがありません"}
             description={filter === "all" && !channel.archived ? "最初の依頼を作成しましょう。" : undefined}
             action={
               filter === "all" && !channel.archived ? (
-                <Button onClick={() => setCreateOpen(true)}>＋ 新規スレッド</Button>
+                <Button onClick={() => setCreateOpen(true)}><Plus size={15} /> 新規スレッド</Button>
               ) : undefined
             }
           />
@@ -137,7 +142,7 @@ function ThreadListColumn() {
               onClick={() => setDoneOpen((v) => !v)}
               className="flex w-full items-center gap-1 px-3 py-2 text-xs font-medium text-slate-400 hover:text-slate-600"
             >
-              <span className={`transition-transform ${doneOpen ? "rotate-90" : ""}`}>▸</span>
+              <ChevronRight size={14} className={`transition-transform ${doneOpen ? "rotate-90" : ""}`} />
               完了済み ({doneRows.length})
             </button>
             {doneOpen &&
@@ -164,15 +169,21 @@ function ThreadRow({ row, active, basePath, muted }: { row: Row; active: boolean
       } ${muted ? "opacity-70" : ""}`}
     >
       <div className="flex items-center gap-1.5">
-        {thread.type === "request" ? <StatusBadge status={thread.status} size="sm" /> : <span className="text-xs">💬</span>}
+        {thread.type === "request" ? (
+          <StatusBadge status={thread.status} size="sm" />
+        ) : (
+          <ThreadTypeIcon type="topic" size={14} className="text-slate-400" />
+        )}
         {/* TL-5: 期日超過バッジ */}
         {overdue && (
-          <span className="rounded bg-rose-100 px-1.5 py-px text-[11px] font-bold text-rose-600">⚠ 期日超過</span>
+          <span className="inline-flex items-center gap-0.5 rounded bg-rose-100 px-1.5 py-px text-[11px] font-bold text-rose-600">
+            <AlertTriangle size={11} /> 期日超過
+          </span>
         )}
         <span className="ml-auto shrink-0 text-[11px] text-slate-400">{formatDateTime(thread.updatedAt)}</span>
       </div>
       <div className="mt-1 flex items-center gap-1.5">
-        <span className="shrink-0 text-sm">{thread.type === "request" ? "🧵" : "💬"}</span>
+        <ThreadTypeIcon type={thread.type} size={15} className="text-slate-500" />
         <span className={`min-w-0 flex-1 truncate text-sm ${unread > 0 ? "font-bold" : "font-medium"}`}>
           {thread.title}
         </span>
@@ -184,9 +195,13 @@ function ThreadRow({ row, active, basePath, muted }: { row: Row; active: boolean
         <UnreadBadge count={unread} />
       </div>
       {lastMessage && (
-        <div className="mt-0.5 truncate text-xs text-slate-400">
+        <div className="mt-0.5 flex items-center gap-0.5 truncate text-xs text-slate-400">
           {lastAuthorName && <span>{lastAuthorName.split(" ")[0]}: </span>}
-          {lastMessage.body || "📎 添付ファイル"}
+          {lastMessage.body || (
+            <span className="inline-flex items-center gap-0.5">
+              <Paperclip size={11} /> 添付ファイル
+            </span>
+          )}
         </div>
       )}
     </Link>
@@ -233,8 +248,8 @@ function CreateThreadModal({ onClose }: { onClose: () => void }) {
         <div className="grid grid-cols-2 gap-2">
           {(
             [
-              { key: "request", icon: "🧵", label: "依頼", desc: "期日とステータスで進捗を管理" },
-              { key: "topic", icon: "💬", label: "トピック", desc: "依頼に紐づかない質問・連絡" },
+              { key: "request", label: "依頼", desc: "期日とステータスで進捗を管理" },
+              { key: "topic", label: "トピック", desc: "依頼に紐づかない質問・連絡" },
             ] as const
           ).map((t) => (
             <button
@@ -244,7 +259,10 @@ function CreateThreadModal({ onClose }: { onClose: () => void }) {
                 type === t.key ? "border-indigo-600 bg-indigo-50" : "border-slate-200 hover:border-slate-300"
               }`}
             >
-              <div className="text-sm font-bold">{t.icon} {t.label}</div>
+              <div className="flex items-center gap-1.5 text-sm font-bold">
+                <ThreadTypeIcon type={t.key} size={16} className={type === t.key ? "text-indigo-600" : "text-slate-500"} />
+                {t.label}
+              </div>
               <div className="mt-0.5 text-xs text-slate-500">{t.desc}</div>
             </button>
           ))}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useBlocker } from "react-router-dom";
+import { Check, Minus, Plus } from "lucide-react";
 import { api } from "../api";
 import { useApiData } from "../hooks/useApiData";
 import { useAuth } from "../stores/auth";
@@ -131,7 +132,7 @@ export function AdminPermissions() {
                     m.role === "admin" ? (
                       // PERM-1: 管理者は固定
                       <td key={m.id} className="px-3 py-2.5 text-center">
-                        <span className="text-xs text-slate-400" title="管理者は常に全チャンネルを閲覧できます">✓ 固定</span>
+                        <span className="inline-flex items-center gap-0.5 text-xs text-slate-400" title="管理者は常に全チャンネルを閲覧できます"><Check size={12} /> 固定</span>
                       </td>
                     ) : (
                       <td key={m.id} className="px-3 py-2.5 text-center">
@@ -171,8 +172,8 @@ export function AdminPermissions() {
           <p className="text-sm">以下の{diffTexts.length}件の変更を保存します。</p>
           <ul className="mt-2 space-y-1.5">
             {diffTexts.map((t, i) => (
-              <li key={i} className={`rounded-lg px-3 py-1.5 text-sm ${t.includes("外します") ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>
-                {t.includes("外します") ? "− " : "＋ "}
+              <li key={i} className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm ${t.includes("外します") ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>
+                {t.includes("外します") ? <Minus size={14} className="shrink-0" /> : <Plus size={14} className="shrink-0" />}
                 {t}
               </li>
             ))}

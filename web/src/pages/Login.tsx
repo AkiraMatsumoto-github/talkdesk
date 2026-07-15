@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { AlertTriangle, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { api } from "../api";
 import type { User } from "../api/types";
 import { useAuth } from "../stores/auth";
@@ -121,14 +122,14 @@ export function Login() {
                 className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 text-slate-400 hover:text-slate-600"
                 aria-label={showPw ? "パスワードを隠す" : "パスワードを表示"}
               >
-                {showPw ? "🙈" : "👁"}
+                {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </span>
           </label>
 
           {error && (
-            <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-              ⚠ {error}
+            <div className="mt-3 flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+              <AlertTriangle size={13} className="shrink-0" /> {error}
             </div>
           )}
 
@@ -166,7 +167,7 @@ export function Login() {
                   </span>
                   <span className="mt-0.5 block truncate text-xs text-slate-500">{ROLE_DESC[u.role]}</span>
                 </span>
-                <span className="text-slate-300">→</span>
+                <ChevronRight size={16} className="shrink-0 text-slate-300" />
               </button>
             ))}
           </div>

@@ -1,16 +1,17 @@
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { AlertTriangle, AtSign, Bell, CircleDot, MessageSquare, type LucideIcon } from "lucide-react";
 import { api } from "../api";
 import type { AppNotification } from "../api/types";
 import { useApiData } from "../hooks/useApiData";
 import { useAuth } from "../stores/auth";
 import { formatDateTime } from "../utils/format";
 
-const KIND_ICON: Record<AppNotification["kind"], string> = {
-  mention: "＠",
-  status: "●",
-  due: "⚠",
-  message: "💬",
+const KIND_ICON: Record<AppNotification["kind"], LucideIcon> = {
+  mention: AtSign,
+  status: CircleDot,
+  due: AlertTriangle,
+  message: MessageSquare,
 };
 
 /** SHELL-3: 通知センター */
@@ -47,7 +48,7 @@ export function NotificationCenter({ open, setOpen }: { open: boolean; setOpen: 
         className="relative rounded-md p-1.5 text-slate-300 hover:bg-slate-700 hover:text-white"
         title="通知"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        <Bell size={18} />
         {unread > 0 && (
           <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
             {unread > 9 ? "9+" : unread}
@@ -80,7 +81,7 @@ export function NotificationCenter({ open, setOpen }: { open: boolean; setOpen: 
                 }`}
               >
                 <span
-                  className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs ${
+                  className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
                     n.kind === "mention"
                       ? "bg-rose-100 text-rose-600"
                       : n.kind === "due"
@@ -88,7 +89,10 @@ export function NotificationCenter({ open, setOpen }: { open: boolean; setOpen: 
                         : "bg-indigo-50 text-indigo-600"
                   }`}
                 >
-                  {KIND_ICON[n.kind]}
+                  {(() => {
+                    const Icon = KIND_ICON[n.kind];
+                    return <Icon size={13} />;
+                  })()}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[13px] leading-snug">{n.text}</span>

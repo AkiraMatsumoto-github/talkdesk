@@ -7,7 +7,8 @@ import { useAuth } from "../stores/auth";
 import { useToasts } from "../stores/toast";
 import { useOrgCtx } from "../layout/OrgContext";
 import { useChannel } from "./ChannelLayout";
-import { Avatar, Button, Modal, SkeletonList, StatusBadge } from "../components/ui";
+import { AlertTriangle, ArrowLeft, Ban, Download, Eye, MoreVertical, Paperclip, Pencil, RefreshCw, X } from "lucide-react";
+import { Avatar, Button, Modal, SkeletonList, StatusBadge, ThreadTypeIcon } from "../components/ui";
 import { formatBytes, formatDateTime, formatShortDate, isOverdue, within24h } from "../utils/format";
 import { NotFoundPane } from "./NotFound";
 
@@ -189,17 +190,17 @@ export function ThreadView() {
             className="mt-0.5 rounded p-1 text-slate-400 hover:bg-slate-100 lg:hidden"
             aria-label="スレッド一覧へ戻る"
           >
-            ←
+            <ArrowLeft size={18} />
           </Link>
           <div className="min-w-0 flex-1">
             <h2 className="flex items-center gap-2 text-base font-bold">
-              <span>{thread.type === "request" ? "🧵" : "💬"}</span>
+              <ThreadTypeIcon type={thread.type} size={18} className="text-slate-500" />
               <span className="truncate">{thread.title}</span>
             </h2>
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
               {thread.type === "request" && <StatusBadge status={thread.status} />}
               {overdue && (
-                <span className="rounded bg-rose-100 px-1.5 py-px text-[11px] font-bold text-rose-600">⚠ 期日超過</span>
+                <span className="inline-flex items-center gap-0.5 rounded bg-rose-100 px-1.5 py-px text-[11px] font-bold text-rose-600"><AlertTriangle size={11} /> 期日超過</span>
               )}
               {/* TH-2: 期日のインライン編集 */}
               {thread.type === "request" &&
@@ -225,7 +226,10 @@ export function ThreadView() {
                     className={`text-xs ${overdue ? "font-bold text-rose-600" : "text-slate-500"} ${channel.archived ? "cursor-default" : "rounded px-1 py-0.5 hover:bg-slate-100"}`}
                     title={channel.archived ? undefined : "期日を編集"}
                   >
-                    期日: {thread.dueDate ? formatShortDate(thread.dueDate) : "未設定"} {!channel.archived && "✎"}
+                    <span className="inline-flex items-center gap-1">
+                      期日: {thread.dueDate ? formatShortDate(thread.dueDate) : "未設定"}
+                      {!channel.archived && <Pencil size={11} />}
+                    </span>
                   </button>
                 ))}
             </div>
@@ -364,7 +368,7 @@ function MessageItem({
   if (m.system) {
     return (
       <div id={`msg-${m.id}`} className="my-2 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
-        <span>⚙</span>
+        <RefreshCw size={11} />
         {m.body}
         <span>{formatDateTime(m.createdAt)}</span>
       </div>
@@ -374,8 +378,8 @@ function MessageItem({
   // TH-9: 削除痕跡（FR-H7）
   if (m.deleted) {
     return (
-      <div id={`msg-${m.id}`} className="my-2 text-xs text-slate-400 italic">
-        <span className="mr-2">🚫</span>このメッセージは削除されました
+      <div id={`msg-${m.id}`} className="my-2 flex items-center gap-1.5 text-xs text-slate-400 italic">
+        <Ban size={12} className="shrink-0" />このメッセージは削除されました
       </div>
     );
   }
@@ -407,10 +411,10 @@ function MessageItem({
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="rounded px-1 text-slate-300 opacity-0 group-hover:opacity-100 hover:bg-slate-100 hover:text-slate-500"
+              className="rounded p-0.5 text-slate-300 opacity-0 group-hover:opacity-100 hover:bg-slate-100 hover:text-slate-500"
               aria-label="メッセージメニュー"
             >
-              ⋮
+              <MoreVertical size={15} />
             </button>
             {menuOpen && (
               <div className="absolute right-0 z-30 mt-1 w-44 rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
@@ -486,10 +490,10 @@ function MessageItem({
                   }`}
                   title="クリックで署名付きURLを取得してダウンロード"
                 >
-                  <span className="text-base">📎</span>
+                  <Paperclip size={15} className="shrink-0" />
                   <span className="min-w-0 flex-1 truncate font-medium">{a.name}</span>
                   <span className={mine ? "text-indigo-200" : "text-slate-400"}>{formatBytes(a.size)}</span>
-                  <span>⬇</span>
+                  <Download size={14} className="shrink-0" />
                 </button>
               ),
             )}
@@ -503,7 +507,7 @@ function MessageItem({
           className={`mt-1 flex items-center gap-0.5 ${mine ? "justify-end" : "justify-end"}`}
           title={`既読: ${readers.map((r) => r.name).join("、")}`}
         >
-          <span className="mr-0.5 text-[10px] text-slate-400">👁</span>
+          <Eye size={11} className="mr-0.5 text-slate-400" />
           {readers.slice(0, 3).map((r) => (
             <Avatar key={r.id} user={r} size={16} />
           ))}
@@ -660,9 +664,9 @@ function Composer({ viewers, onSend }: { viewers: User[]; onSend: (body: string,
           {files.map((f) => (
             <div key={f.id} className="relative w-52 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs">
               <div className="flex items-center gap-1.5">
-                <span>📎</span>
+                <Paperclip size={13} className="shrink-0 text-slate-400" />
                 <span className="min-w-0 flex-1 truncate font-medium">{f.name}</span>
-                <button onClick={() => setFiles((fs) => fs.filter((x) => x.id !== f.id))} className="text-slate-400 hover:text-slate-600" aria-label="添付を削除">✕</button>
+                <button onClick={() => setFiles((fs) => fs.filter((x) => x.id !== f.id))} className="shrink-0 text-slate-400 hover:text-slate-600" aria-label="添付を削除"><X size={14} /></button>
               </div>
               <div className="mt-1 flex items-center gap-2">
                 <div className="h-1 flex-1 overflow-hidden rounded bg-slate-200">
@@ -706,7 +710,7 @@ function Composer({ viewers, onSend }: { viewers: User[]; onSend: (body: string,
           className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
           title="ファイルを添付（1件100MBまで）"
         >
-          📎
+          <Paperclip size={18} />
         </button>
         <Button onClick={send} disabled={!canSend} className="px-4">送信</Button>
       </div>

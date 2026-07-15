@@ -5,7 +5,8 @@ import type { Message, Thread, User } from "../api/types";
 import { useApiData, useUsersById } from "../hooks/useApiData";
 import { useAuth } from "../stores/auth";
 import { useToasts } from "../stores/toast";
-import { Avatar, Button, EmptyState, Modal, SkeletonList, StatusBadge } from "../components/ui";
+import { AlertTriangle, Archive, ArrowLeft, Ban, ChevronRight, FolderOpen, Paperclip, Plus, RefreshCw } from "lucide-react";
+import { Avatar, Button, EmptyState, Modal, SkeletonList, StatusBadge, ThreadTypeIcon } from "../components/ui";
 import { formatBytes, formatDateTime } from "../utils/format";
 import { NotFoundPane } from "./NotFound";
 
@@ -93,7 +94,7 @@ function OpsOrgs() {
     <div className="mx-auto max-w-3xl px-6 py-6">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold">企業一覧</h1>
-        <Button onClick={() => setCreateOpen(true)}>＋ 企業を発行</Button>
+        <Button onClick={() => setCreateOpen(true)}><Plus size={15} /> 企業を発行</Button>
       </div>
       <div className="mt-4 space-y-2">
         {rows.map(({ org, memberCount, channelCount, assigned }) => (
@@ -111,7 +112,7 @@ function OpsOrgs() {
                 メンバー{memberCount} ・ チャンネル{channelCount} ・ 担当: {assigned.length > 0 ? assigned.join("、") : "未アサイン"}
               </div>
             </div>
-            <span className="text-slate-300">→</span>
+            <ChevronRight size={16} className="shrink-0 text-slate-300" />
           </Link>
         ))}
       </div>
@@ -167,7 +168,7 @@ function OpsOrgDetail() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-6">
-      <Link to="/ops/orgs" className="text-xs text-indigo-600 hover:underline">← 企業一覧へ</Link>
+      <Link to="/ops/orgs" className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline"><ArrowLeft size={13} /> 企業一覧へ</Link>
       <div className="mt-2 flex items-center gap-3">
         <span className="flex h-11 w-11 items-center justify-center rounded-xl text-base font-bold text-white" style={{ backgroundColor: org.color }}>
           {org.initial}
@@ -230,7 +231,7 @@ function OpsOrgDetail() {
             </Button>
           </div>
         )}
-        {assignError && <p className="mt-2 text-xs text-rose-600">⚠ {assignError}</p>}
+        {assignError && <p className="mt-2 flex items-center gap-1 text-xs text-rose-600"><AlertTriangle size={12} /> {assignError}</p>}
       </section>
 
       {/* OPS-3: チャンネル閲覧（読み取り専用） */}
@@ -248,7 +249,7 @@ function OpsOrgDetail() {
             >
               <span className="text-slate-400"># </span>
               <span className="font-medium">{c.name}</span>
-              {c.archived && <span className="ml-2 text-[10px] text-slate-400">📦 アーカイブ</span>}
+              {c.archived && <span className="ml-2 inline-flex items-center gap-0.5 text-[10px] text-slate-400"><Archive size={10} /> アーカイブ</span>}
               <span className="mt-0.5 block truncate text-xs text-slate-400">{c.description}</span>
             </Link>
           ))}
@@ -293,7 +294,7 @@ function OpsChannelView() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-6">
-      <Link to={`/ops/orgs/${orgId}`} className="text-xs text-indigo-600 hover:underline">← 企業詳細へ</Link>
+      <Link to={`/ops/orgs/${orgId}`} className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline"><ArrowLeft size={13} /> 企業詳細へ</Link>
       <h1 className="mt-2 text-lg font-bold">
         <span className="text-slate-400"># </span>
         {channel.name}
@@ -302,7 +303,7 @@ function OpsChannelView() {
         🛡 読み取り専用ビューです。この閲覧は監査ログに記録されました。
       </div>
       <div className="mt-4 space-y-2">
-        {threads.length === 0 && <EmptyState icon="🗂" title="スレッドはありません" />}
+        {threads.length === 0 && <EmptyState icon={<FolderOpen size={40} strokeWidth={1.5} />} title="スレッドはありません" />}
         {threads.map((t) => (
           <OpsThreadItem key={t.id} thread={t} />
         ))}
@@ -323,8 +324,8 @@ function OpsThreadItem({ thread }: { thread: Thread }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-2 px-4 py-3 text-left">
-        <span className={`text-xs transition-transform ${open ? "rotate-90" : ""}`}>▸</span>
-        <span>{thread.type === "request" ? "🧵" : "💬"}</span>
+        <ChevronRight size={14} className={`shrink-0 text-slate-400 transition-transform ${open ? "rotate-90" : ""}`} />
+        <ThreadTypeIcon type={thread.type} size={15} className="text-slate-500" />
         <span className="min-w-0 flex-1 truncate text-sm font-bold">{thread.title}</span>
         {thread.type === "request" && <StatusBadge status={thread.status} size="sm" />}
         <span className="text-xs text-slate-400">{formatDateTime(thread.updatedAt)}</span>
@@ -335,17 +336,17 @@ function OpsThreadItem({ thread }: { thread: Thread }) {
           {(messages ?? []).map((m) => (
             <div key={m.id} className="border-b border-slate-50 py-2 text-sm last:border-b-0">
               {m.system ? (
-                <span className="text-xs text-slate-400">⚙ {m.body}</span>
+                <span className="inline-flex items-center gap-1 text-xs text-slate-400"><RefreshCw size={11} /> {m.body}</span>
               ) : m.deleted ? (
-                <span className="text-xs text-slate-400 italic">🚫 このメッセージは削除されました</span>
+                <span className="inline-flex items-center gap-1 text-xs text-slate-400 italic"><Ban size={11} /> このメッセージは削除されました</span>
               ) : (
                 <>
                   <span className="mr-2 text-xs font-bold text-slate-500">{nameOf(m.authorId)}</span>
                   <span className="mr-2 text-[11px] text-slate-400">{formatDateTime(m.createdAt)}</span>
                   <span className="block whitespace-pre-wrap">{m.body}</span>
                   {m.attachments.map((a) => (
-                    <span key={a.id} className="mt-1 inline-block rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-                      📎 {a.name}（{formatBytes(a.size)}）
+                    <span key={a.id} className="mt-1 inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+                      <Paperclip size={11} /> {a.name}（{formatBytes(a.size)}）
                     </span>
                   ))}
                 </>
@@ -394,7 +395,7 @@ function OpsAssistants() {
     <div className="mx-auto max-w-3xl px-6 py-6">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold">アシスタント一覧</h1>
-        <Button onClick={() => setInviteOpen(true)}>＋ アシスタントを登録</Button>
+        <Button onClick={() => setInviteOpen(true)}><Plus size={15} /> アシスタントを登録</Button>
       </div>
       <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         {data.map(({ assistant: a, orgs }) => (

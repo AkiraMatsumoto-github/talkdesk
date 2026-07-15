@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { BookText, ChevronRight, Plus, Search } from "lucide-react";
 import { api } from "../api";
 import { useApiData, useUsersById } from "../hooks/useApiData";
 import { useOrgCtx } from "../layout/OrgContext";
@@ -28,7 +29,7 @@ export function PagesList() {
     <div className="flex min-w-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-3 border-b border-slate-200 p-3">
         <div className="relative max-w-md flex-1">
-          <span className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400">🔍</span>
+          <Search size={15} className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -39,20 +40,20 @@ export function PagesList() {
         {/* KB-1: 作成はチャンネル閲覧者全員可（アーカイブ済みは不可） */}
         {!channel.archived && (
           <Link to={newPagePath}>
-            <Button>＋ 新規ページ</Button>
+            <Button><Plus size={15} /> 新規ページ</Button>
           </Link>
         )}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {filtered.length === 0 && (
           <EmptyState
-            icon="📖"
+            icon={<BookText size={40} strokeWidth={1.5} />}
             title={query ? "一致するページがありません" : "ナレッジページはまだありません"}
             description={query ? undefined : "業務マニュアルや手順をページとして蓄積できます。"}
             action={
               !query && !channel.archived ? (
                 <Link to={newPagePath}>
-                  <Button>＋ 新規ページ</Button>
+                  <Button><Plus size={15} /> 新規ページ</Button>
                 </Link>
               ) : undefined
             }
@@ -67,14 +68,14 @@ export function PagesList() {
                 to={`${base}/${p.id}`}
                 className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm transition-shadow hover:shadow"
               >
-                <span className="text-2xl">📖</span>
+                <BookText size={22} strokeWidth={1.75} className="shrink-0 text-indigo-500" />
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-bold">{p.title}</div>
                   <div className="mt-0.5 text-xs text-slate-400">
                     更新: {formatDateTime(p.updatedAt)} {editor?.name}（rev.{p.rev}）
                   </div>
                 </div>
-                <span className="text-slate-300">→</span>
+                <ChevronRight size={16} className="shrink-0 text-slate-300" />
               </Link>
             );
           })}

@@ -7,6 +7,7 @@ import { useAuth } from "../stores/auth";
 import { useToasts } from "../stores/toast";
 import { useOrgCtx } from "../layout/OrgContext";
 import { useChannel } from "./ChannelLayout";
+import { ArrowLeft, BookText } from "lucide-react";
 import { Markdown } from "../components/Markdown";
 import { Button, Modal, SkeletonList } from "../components/ui";
 import { formatDateTime } from "../utils/format";
@@ -49,8 +50,8 @@ export function PageHistory() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <div className="flex shrink-0 items-center gap-3 border-b border-slate-200 px-4 py-3">
-        <Link to={`${base}/${page.id}`} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="ページへ戻る">←</Link>
-        <h2 className="min-w-0 flex-1 truncate text-base font-bold">📖 {page.title} の編集履歴</h2>
+        <Link to={`${base}/${page.id}`} className="rounded p-1 text-slate-400 hover:bg-slate-100" aria-label="ページへ戻る"><ArrowLeft size={18} /></Link>
+        <h2 className="flex min-w-0 flex-1 items-center gap-2 truncate text-base font-bold"><BookText size={17} className="shrink-0 text-slate-400" /> {page.title} の編集履歴</h2>
       </div>
       <div className="flex min-h-0 flex-1">
         <div className="w-72 shrink-0 overflow-y-auto border-r border-slate-200">

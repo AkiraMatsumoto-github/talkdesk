@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { NavLink, Outlet, useLocation, useOutletContext, useParams } from "react-router-dom";
+import { Archive } from "lucide-react";
 import { api } from "../api";
 import type { Channel } from "../api/types";
 import { useApiData } from "../hooks/useApiData";
@@ -74,7 +75,7 @@ export function ChannelLayout() {
       {/* CH-4: アーカイブ済みは読み取り専用 */}
       {channel.archived && (
         <div className="flex items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-1.5 text-xs text-amber-800">
-          📦 このチャンネルはアーカイブされています（読み取り専用・投稿や編集はできません）
+          <Archive size={13} className="shrink-0" /> このチャンネルはアーカイブされています（読み取り専用・投稿や編集はできません）
         </div>
       )}
 

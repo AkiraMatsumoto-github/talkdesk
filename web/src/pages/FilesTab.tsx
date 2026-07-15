@@ -1,20 +1,22 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { Download, File, FileSpreadsheet, FileText, FileType, Image, Search } from "lucide-react";
 import { api } from "../api";
 import { useApiData, useUsersById } from "../hooks/useApiData";
 import { useToasts } from "../stores/toast";
 import { useOrgCtx } from "../layout/OrgContext";
 import { useChannel } from "./ChannelLayout";
-import { EmptyState, SkeletonList } from "../components/ui";
+import { EmptyState, SkeletonList, ThreadTypeIcon } from "../components/ui";
 import { formatBytes, formatDateTime } from "../utils/format";
 
-const iconFor = (name: string) => {
+const FileIcon = ({ name }: { name: string }) => {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  if (["xlsx", "xls", "csv"].includes(ext)) return "📊";
-  if (["pdf"].includes(ext)) return "📄";
-  if (["png", "jpg", "jpeg", "gif", "svg"].includes(ext)) return "🖼";
-  if (["doc", "docx"].includes(ext)) return "📝";
-  return "📎";
+  const common = { size: 22, strokeWidth: 1.75 };
+  if (["xlsx", "xls", "csv"].includes(ext)) return <FileSpreadsheet {...common} className="text-emerald-600" />;
+  if (["pdf"].includes(ext)) return <FileText {...common} className="text-rose-600" />;
+  if (["png", "jpg", "jpeg", "gif", "svg"].includes(ext)) return <Image {...common} className="text-violet-600" />;
+  if (["doc", "docx"].includes(ext)) return <FileType {...common} className="text-blue-600" />;
+  return <File {...common} className="text-slate-400" />;
 };
 
 /** §4.1 ファイルタブ */
@@ -43,7 +45,7 @@ export function FilesTab() {
     <div className="flex min-w-0 flex-1 flex-col">
       <div className="shrink-0 border-b border-slate-200 p-3">
         <div className="relative max-w-md">
-          <span className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400">🔍</span>
+          <Search size={15} className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -55,7 +57,7 @@ export function FilesTab() {
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {filtered.length === 0 && (
           <EmptyState
-            icon="📂"
+            icon={<File size={40} strokeWidth={1.5} />}
             title={query ? "一致するファイルがありません" : "ファイルはまだありません"}
             description={query ? "検索条件を変えてお試しください。" : "スレッドに添付されたファイルがここに一覧されます。"}
           />
@@ -68,7 +70,7 @@ export function FilesTab() {
                 key={f.attachment.id}
                 className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm transition-shadow hover:shadow"
               >
-                <span className="text-2xl">{iconFor(f.attachment.name)}</span>
+                <span className="shrink-0">{<FileIcon name={f.attachment.name} />}</span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
                     <span className="truncate text-sm font-bold">{f.attachment.name}</span>
@@ -81,15 +83,15 @@ export function FilesTab() {
                     to={`${basePath}/channels/${channel.id}/threads/${f.thread.id}?m=${f.message.id}`}
                     className="mt-0.5 inline-flex items-center gap-1 text-xs text-indigo-600 hover:underline"
                   >
-                    └ {f.thread.type === "request" ? "🧵" : "💬"} {f.thread.title}
+                    <ThreadTypeIcon type={f.thread.type} size={12} /> {f.thread.title}
                   </Link>
                 </div>
                 <button
                   onClick={() => download(f.attachment.id, f.attachment.name)}
-                  className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+                  className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-slate-600 hover:bg-slate-50"
                   title="署名付きURLを取得してダウンロード"
                 >
-                  ⬇
+                  <Download size={16} />
                 </button>
               </div>
             );

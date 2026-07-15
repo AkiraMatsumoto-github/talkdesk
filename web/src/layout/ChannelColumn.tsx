@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Archive, ChevronRight, Lock, Plus, Users } from "lucide-react";
 import { api } from "../api";
 import { useApiData } from "../hooks/useApiData";
 import { useAuth } from "../stores/auth";
@@ -32,7 +33,7 @@ export function ChannelColumn() {
             className="rounded p-1 text-slate-400 hover:bg-slate-700 hover:text-white"
             title="チャンネルを作成"
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 2v10M2 7h10" /></svg>
+            <Plus size={15} />
           </button>
         )}
       </div>
@@ -79,7 +80,7 @@ export function ChannelColumn() {
               onClick={() => setArchOpen((v) => !v)}
               className="flex w-full items-center gap-1 px-2 py-1 text-xs text-slate-500 hover:text-slate-300"
             >
-              <span className={`transition-transform ${archOpen ? "rotate-90" : ""}`}>▸</span>
+              <ChevronRight size={13} className={`transition-transform ${archOpen ? "rotate-90" : ""}`} />
               アーカイブ済み ({archived.length})
             </button>
             {archOpen &&
@@ -93,7 +94,7 @@ export function ChannelColumn() {
                 >
                   <span>#</span>
                   <span className="min-w-0 flex-1 truncate line-through decoration-slate-600">{c.name}</span>
-                  <span className="text-[10px] text-slate-500">📦</span>
+                  <Archive size={12} className="shrink-0 text-slate-500" />
                 </Link>
               ))}
           </div>
@@ -104,10 +105,10 @@ export function ChannelColumn() {
       {user.role === "admin" && (
         <div className="border-t border-slate-700 px-2 py-2">
           <Link to="/admin/members" className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-slate-400 hover:bg-slate-700 hover:text-white">
-            ⚙ メンバー管理
+            <Users size={14} /> メンバー管理
           </Link>
           <Link to="/admin/permissions" className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-slate-400 hover:bg-slate-700 hover:text-white">
-            🔒 チャンネル権限管理
+            <Lock size={14} /> チャンネル権限管理
           </Link>
         </div>
       )}

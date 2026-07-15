@@ -1,7 +1,23 @@
 import { useEffect, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import type { ThreadStatus, User } from "../api/types";
+import { ClipboardList, Inbox, MessageSquare, X } from "lucide-react";
+import type { ThreadStatus, ThreadType, User } from "../api/types";
 import { useToasts } from "../stores/toast";
+
+// ---- スレッド種別アイコン（🧵依頼 / 💬トピック の置き換え） ----
+
+export function ThreadTypeIcon({
+  type,
+  size = 16,
+  className = "",
+}: {
+  type: ThreadType;
+  size?: number;
+  className?: string;
+}) {
+  const Icon = type === "request" ? ClipboardList : MessageSquare;
+  return <Icon size={size} className={`inline shrink-0 ${className}`} />;
+}
 
 // ---- アバター ----
 
@@ -88,7 +104,7 @@ export function Modal({
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
           <h2 className="text-base font-bold">{title}</h2>
           <button onClick={onClose} className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600" aria-label="閉じる">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 3l10 10M13 3L3 13" /></svg>
+            <X size={16} />
           </button>
         </div>
         <div className="max-h-[70vh] overflow-y-auto px-5 py-4">{children}</div>
@@ -144,10 +160,10 @@ export function Spinner() {
 
 // ---- 空状態・スケルトン ----
 
-export function EmptyState({ icon, title, description, action }: { icon?: string; title: string; description?: string; action?: ReactNode }) {
+export function EmptyState({ icon, title, description, action }: { icon?: ReactNode; title: string; description?: string; action?: ReactNode }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
-      <div className="text-4xl">{icon ?? "📭"}</div>
+    <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+      <div className="text-slate-300">{icon ?? <Inbox size={40} strokeWidth={1.5} />}</div>
       <div className="font-bold text-slate-700">{title}</div>
       {description && <div className="max-w-sm text-sm text-slate-500">{description}</div>}
       {action && <div className="mt-2">{action}</div>}
@@ -196,7 +212,7 @@ export function ToastStack() {
               }}
               aria-label="閉じる"
             >
-              ✕
+              <X size={14} />
             </button>
           </div>
           {t.body && <div className="mt-0.5 line-clamp-2 text-xs text-slate-500">{t.body}</div>}
