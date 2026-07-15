@@ -23,7 +23,7 @@ export function ChannelColumn() {
   const archived = (channels ?? []).filter((c) => c.archived);
 
   return (
-    <aside className="flex w-60 shrink-0 flex-col bg-slate-800 text-slate-300 max-lg:hidden">
+    <aside className="flex w-60 shrink-0 flex-col bg-slate-800 text-slate-300">
       <div className="flex items-center justify-between px-4 pt-4 pb-2">
         <h2 className="text-xs font-bold tracking-wider text-slate-400 uppercase">チャンネル</h2>
         {canCreate && (

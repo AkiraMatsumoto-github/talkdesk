@@ -31,6 +31,8 @@ export function AppShell() {
   const pushToast = useToasts((s) => s.push);
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  // モバイル用: チャンネル一覧ドロワーの開閉
+  const [navOpen, setNavOpen] = useState(false);
   // SHELL-4: 切断バナー（モックでは常時接続扱い）
   const [connected] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -65,6 +67,11 @@ export function AppShell() {
       });
     });
   }, [user, pushToast]);
+
+  // モバイル: 画面遷移（チャンネル/スレッド選択）でドロワーを閉じる
+  useEffect(() => {
+    setNavOpen(false);
+  }, [location.pathname]);
 
   // メニュー外クリックで閉じる
   useEffect(() => {
@@ -108,7 +115,16 @@ export function AppShell() {
     <OrgContext.Provider value={ctx}>
       <div className="flex h-full flex-col">
         {/* ヘッダー */}
-        <header className="flex h-12 shrink-0 items-center gap-3 bg-slate-900 px-4 text-white">
+        <header className="flex h-12 shrink-0 items-center gap-3 bg-slate-900 px-3 text-white sm:px-4">
+          {/* モバイル: チャンネル一覧を開くハンバーガー */}
+          <button
+            onClick={() => setNavOpen((v) => !v)}
+            className="-ml-1 rounded-md p-1.5 text-slate-300 hover:bg-slate-700 hover:text-white lg:hidden"
+            aria-label="チャンネル一覧を開く"
+            aria-expanded={navOpen}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
+          </button>
           <Link to={`${ctx.basePath}/`} className="text-base font-black tracking-tight text-indigo-300">
             talkdesk
           </Link>
@@ -174,9 +190,24 @@ export function AppShell() {
         )}
 
         <div className="flex min-h-0 flex-1">
-          {/* §6: アシスタントの企業レール */}
-          {user.role === "assistant" && <OrgRail orgs={assignedOrgs ?? []} activeOrgId={ctx.org.id} />}
-          <ChannelColumn />
+          {/* モバイル: ドロワー背景（タップで閉じる） */}
+          {navOpen && (
+            <div
+              className="fixed inset-x-0 top-12 bottom-0 z-30 bg-slate-900/50 lg:hidden"
+              onClick={() => setNavOpen(false)}
+              aria-hidden
+            />
+          )}
+          {/* サイドバー: デスクトップは常時インライン、モバイルは左からスライドするドロワー */}
+          <div
+            className={`flex shrink-0 max-lg:fixed max-lg:top-12 max-lg:bottom-0 max-lg:left-0 max-lg:z-40 max-lg:shadow-2xl max-lg:transition-transform max-lg:duration-200 ${
+              navOpen ? "max-lg:translate-x-0" : "max-lg:-translate-x-full"
+            }`}
+          >
+            {/* §6: アシスタントの企業レール */}
+            {user.role === "assistant" && <OrgRail orgs={assignedOrgs ?? []} activeOrgId={ctx.org.id} />}
+            <ChannelColumn />
+          </div>
           <main className="flex min-w-0 flex-1">
             <Routes>
               <Route index element={<HomeRedirect />} />
