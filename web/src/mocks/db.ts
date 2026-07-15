@@ -55,13 +55,15 @@ export const db: Db = {
     { id: "org-hoge", name: "株式会社ホゲホゲ", initial: "ホ", color: "#0d9488" },
   ],
   users: [
-    { id: "u-sato", name: "佐藤 花子", email: "sato@sample.co.jp", role: "admin", orgId: "org-sample", color: "#e11d48" },
-    { id: "u-suzuki", name: "鈴木 一郎", email: "suzuki@sample.co.jp", role: "member", orgId: "org-sample", color: "#2563eb" },
-    { id: "u-takahashi", name: "高橋 美咲", email: "takahashi@sample.co.jp", role: "member", orgId: "org-sample", color: "#7c3aed" },
-    { id: "u-yamada", name: "山田 健太", email: "yamada@hogehoge.co.jp", role: "admin", orgId: "org-hoge", color: "#ca8a04" },
+    // アバター色はブランド（インディゴ／slate）に沿った寒色で統一。
+    // サンプル社=インディゴ〜ブルー系 / ホゲホゲ社=ティール〜シアン系 / アシスタント=バイオレット〜パープル系 / 運営=slate
+    { id: "u-sato", name: "佐藤 花子", email: "sato@sample.co.jp", role: "admin", orgId: "org-sample", color: "#4338ca" },
+    { id: "u-suzuki", name: "鈴木 一郎", email: "suzuki@sample.co.jp", role: "member", orgId: "org-sample", color: "#6366f1" },
+    { id: "u-takahashi", name: "高橋 美咲", email: "takahashi@sample.co.jp", role: "member", orgId: "org-sample", color: "#2563eb" },
+    { id: "u-yamada", name: "山田 健太", email: "yamada@hogehoge.co.jp", role: "admin", orgId: "org-hoge", color: "#0d9488" },
     { id: "u-kobayashi", name: "小林 直子", email: "kobayashi@hogehoge.co.jp", role: "member", orgId: "org-hoge", color: "#0891b2" },
-    { id: "u-tanaka", name: "田中 太郎", email: "tanaka@talkdesk.jp", role: "assistant", color: "#16a34a" },
-    { id: "u-ito", name: "伊藤 さくら", email: "ito@talkdesk.jp", role: "assistant", color: "#db2777" },
+    { id: "u-tanaka", name: "田中 太郎", email: "tanaka@talkdesk.jp", role: "assistant", color: "#7c3aed" },
+    { id: "u-ito", name: "伊藤 さくら", email: "ito@talkdesk.jp", role: "assistant", color: "#9333ea" },
     { id: "u-ops", name: "運営 太一", email: "ops@talkdesk.jp", role: "ops", color: "#475569" },
   ],
   assignments: [
