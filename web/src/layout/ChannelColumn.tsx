@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Archive, ChevronRight, Lock, Plus, Users } from "lucide-react";
+import { Archive, ChevronRight, Plus } from "lucide-react";
 import { api } from "../api";
 import { useApiData } from "../hooks/useApiData";
 import { useAuth } from "../stores/auth";
@@ -101,17 +101,8 @@ export function ChannelColumn() {
         )}
       </nav>
 
-      {/* CH-5: 管理導線（クライアント管理者のみ） */}
-      {user.role === "admin" && (
-        <div className="border-t border-slate-700 px-2 py-2">
-          <Link to="/admin/members" className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-slate-400 hover:bg-slate-700 hover:text-white">
-            <Users size={14} /> メンバー管理
-          </Link>
-          <Link to="/admin/permissions" className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-slate-400 hover:bg-slate-700 hover:text-white">
-            <Lock size={14} /> チャンネル権限管理
-          </Link>
-        </div>
-      )}
+      {/* CH-5: 管理導線はヘッダーのアバターメニューに集約（管理者にのみ表示）。
+          チャンネル/スレッドの見せ方はアシスタント・メンバーと統一する */}
 
       {createOpen && <CreateChannelModal onClose={() => setCreateOpen(false)} />}
     </aside>
