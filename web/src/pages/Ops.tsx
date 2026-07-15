@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, NavLink, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import type { Message, Thread, User } from "../api/types";
-import { useApiData } from "../hooks/useApiData";
+import { useApiData, useUsersById } from "../hooks/useApiData";
 import { useAuth } from "../stores/auth";
 import { useToasts } from "../stores/toast";
 import { Avatar, Button, EmptyState, Modal, SkeletonList, StatusBadge } from "../components/ui";
@@ -279,7 +279,6 @@ function OpsChannelView() {
   const user = useAuth((s) => s.user)!;
   const channel = useApiData(() => api.getChannel(channelId!), [channelId]);
   const threads = useApiData(() => api.listThreads(channelId!), [channelId]);
-  const viewers = useApiData(() => api.listChannelViewers(channelId!), [channelId]);
   const audited = useRef(false);
 
   // FR-O3: 閲覧の事実を監査ログに記録
@@ -289,7 +288,7 @@ function OpsChannelView() {
     void api.recordAudit(user.id, "運営閲覧", `運営管理者が #${channel.name} を閲覧`, orgId);
   }, [channel, user.id, orgId]);
 
-  if (channel === undefined || !threads || !viewers) return <SkeletonList />;
+  if (channel === undefined || !threads) return <SkeletonList />;
   if (!channel || channel.orgId !== orgId) return <NotFoundPane />;
 
   return (
@@ -305,19 +304,22 @@ function OpsChannelView() {
       <div className="mt-4 space-y-2">
         {threads.length === 0 && <EmptyState icon="🗂" title="スレッドはありません" />}
         {threads.map((t) => (
-          <OpsThreadItem key={t.id} thread={t} nameOf={(id) => viewers.find((v) => v.id === id)?.name ?? "不明"} />
+          <OpsThreadItem key={t.id} thread={t} />
         ))}
       </div>
     </div>
   );
 }
 
-function OpsThreadItem({ thread, nameOf }: { thread: Thread; nameOf: (id: string) => string }) {
+function OpsThreadItem({ thread }: { thread: Thread }) {
   const [open, setOpen] = useState(false);
   const messages = useApiData<Message[] | undefined>(
     () => (open ? api.listMessages(thread.id) : Promise.resolve(undefined)),
     [open, thread.id],
   );
+  // #2と同方針: 投稿者は getUser ベースで解決（権限剥奪・無効化済みユーザーも「不明」にならない）
+  const usersById = useUsersById((messages ?? []).map((m) => m.authorId));
+  const nameOf = (id: string) => usersById?.[id]?.name ?? "不明";
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-2 px-4 py-3 text-left">
