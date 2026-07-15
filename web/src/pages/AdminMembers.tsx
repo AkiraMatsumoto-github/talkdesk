@@ -128,6 +128,8 @@ export function AdminMembers() {
 
 function MemberRow({ member: m, me, onDisable }: { member: User; me: User; onDisable: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmDemote, setConfirmDemote] = useState(false);
+  const [demoting, setDemoting] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const pushToast = useToasts((s) => s.push);
 
@@ -174,10 +176,10 @@ function MemberRow({ member: m, me, onDisable }: { member: User; me: User; onDis
               ) : (
                 <button
                   className="block w-full px-3 py-1.5 text-left text-sm hover:bg-slate-50"
-                  onClick={async () => {
+                  onClick={() => {
                     setMenuOpen(false);
-                    await api.setMemberRole(m.id, "member", me.id);
-                    pushToast({ title: `${m.name} をメンバーに降格しました` });
+                    // MEM-2b: 降格は全チャンネル閲覧権限を失うため確認モーダルを出す
+                    setConfirmDemote(true);
                   }}
                 >
                   メンバーに降格
@@ -195,6 +197,39 @@ function MemberRow({ member: m, me, onDisable }: { member: User; me: User; onDis
             </div>
           )}
         </div>
+      )}
+
+      {/* MEM-2b: 降格の確認（全チャンネル閲覧権限を失う旨を警告） */}
+      {confirmDemote && (
+        <Modal
+          title="メンバーに降格"
+          onClose={() => setConfirmDemote(false)}
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setConfirmDemote(false)}>キャンセル</Button>
+              <Button
+                variant="danger"
+                loading={demoting}
+                onClick={async () => {
+                  setDemoting(true);
+                  await api.setMemberRole(m.id, "member", me.id);
+                  setDemoting(false);
+                  setConfirmDemote(false);
+                  pushToast({ title: `${m.name} をメンバーに降格しました` });
+                }}
+              >
+                降格する
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm">
+            <strong>{m.name}</strong>さんはメンバーになると<strong>全チャンネルの閲覧権限を失います</strong>。
+          </p>
+          <p className="mt-2 text-xs text-slate-500">
+            必要なチャンネルは、チャンネル権限管理から個別に付与してください。降格しますか？
+          </p>
+        </Modal>
       )}
     </div>
   );

@@ -450,8 +450,10 @@ export const mockApi: TalkdeskApi = {
   // 通知
   async listNotifications(userId) {
     await delay(60);
+    // SHELL-3 / NOTIF-1: 通知センターには「メンション・担当依頼のステータス変更・期日超過」のみ。
+    // 一般の新着メッセージ（kind:"message"）は画面内トースト＋未読バッジで通知し、ここには載せない。
     return db.notifications
-      .filter((n) => n.userId === userId)
+      .filter((n) => n.userId === userId && n.kind !== "message")
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   },
   async markNotificationRead(id) {
