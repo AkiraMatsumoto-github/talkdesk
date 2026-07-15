@@ -1,60 +1,138 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, Navigate, NavLink, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, NavLink, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import type { Message, Thread, User } from "../api/types";
 import { useApiData, useUsersById } from "../hooks/useApiData";
 import { useAuth } from "../stores/auth";
 import { useToasts } from "../stores/toast";
-import { AlertTriangle, Archive, ArrowLeft, Ban, ChevronRight, FolderOpen, Paperclip, Plus, RefreshCw } from "lucide-react";
+import { AlertTriangle, Archive, ArrowLeft, Ban, Building2, ChevronRight, FolderOpen, Menu, Paperclip, Plus, RefreshCw, ShieldCheck, Users } from "lucide-react";
 import { Avatar, Button, EmptyState, Modal, SkeletonList, StatusBadge, ThreadTypeIcon } from "../components/ui";
 import { formatBytes, formatDateTime } from "../utils/format";
 import { NotFoundPane } from "./NotFound";
 
-/** §7 運営管理画面 */
+/** §7 運営管理画面（本体アプリ AppShell と同じシェル構造に揃える） */
 export function OpsRoutes() {
   const user = useAuth((s) => s.user);
+  const location = useLocation();
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // モバイル: 画面遷移でドロワーを閉じる
+  useEffect(() => {
+    setNavOpen(false);
+  }, [location.pathname]);
+
+  // アバターメニュー外クリックで閉じる
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
   if (!user) return <Navigate to="/login" replace />;
   if (user.role !== "ops") return <NotFoundPane />;
 
-  const tabCls = ({ isActive }: { isActive: boolean }) =>
-    `rounded-md px-3 py-1.5 text-sm font-medium ${isActive ? "bg-slate-700 text-white" : "text-slate-300 hover:bg-slate-700/60"}`;
-
   return (
     <div className="flex h-full flex-col">
-      <header className="flex h-12 shrink-0 items-center gap-4 bg-slate-900 px-4 text-white">
-        <span className="text-base font-black tracking-tight text-indigo-300">
-          talkdesk <span className="text-xs font-bold text-slate-400">ops</span>
-        </span>
-        <nav className="flex gap-1">
-          <NavLink to="/ops/orgs" className={tabCls}>企業</NavLink>
-          <NavLink to="/ops/assistants" className={tabCls}>アシスタント</NavLink>
-        </nav>
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-xs text-slate-400">{user.name}</span>
-          <Avatar user={user} size={26} />
-          <button
-            className="text-xs text-slate-400 hover:text-white"
-            onClick={() => {
-              navigate("/login");
-              setTimeout(() => useAuth.getState().logout(), 0);
-            }}
-          >
-            ログアウト
-          </button>
+      {/* ヘッダー: AppShell と同じ構成 */}
+      <header className="flex h-12 shrink-0 items-center gap-3 bg-slate-900 px-3 text-white sm:px-4">
+        <button
+          onClick={() => setNavOpen((v) => !v)}
+          className="-ml-1 rounded-md p-1.5 text-slate-300 hover:bg-slate-700 hover:text-white lg:hidden"
+          aria-label="運営メニューを開く"
+          aria-expanded={navOpen}
+        >
+          <Menu size={20} />
+        </button>
+        <span className="text-base font-black tracking-tight text-indigo-300">talkdesk</span>
+        <span className="text-slate-600">|</span>
+        <span className="truncate text-sm font-bold">運営管理</span>
+        <div className="ml-auto flex items-center gap-1">
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              className="ml-1 flex items-center rounded-md p-0.5 hover:bg-slate-700"
+              aria-label="アカウントメニュー"
+            >
+              <Avatar user={user} size={28} />
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 z-40 mt-1.5 w-56 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 text-slate-800 shadow-xl">
+                <div className="border-b border-slate-100 px-3 py-2">
+                  <div className="text-sm font-bold">{user.name}</div>
+                  <div className="truncate text-xs text-slate-500">{user.email}</div>
+                </div>
+                <button
+                  className="block w-full px-3 py-1.5 text-left text-sm text-rose-600 hover:bg-rose-50"
+                  onClick={() => {
+                    navigate("/login");
+                    setTimeout(() => useAuth.getState().logout(), 0);
+                  }}
+                >
+                  ログアウト
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/50">
-        <Routes>
-          <Route index element={<Navigate to="orgs" replace />} />
-          <Route path="orgs" element={<OpsOrgs />} />
-          <Route path="orgs/:orgId" element={<OpsOrgDetail />} />
-          <Route path="orgs/:orgId/channels/:channelId" element={<OpsChannelView />} />
-          <Route path="assistants" element={<OpsAssistants />} />
-          <Route path="*" element={<NotFoundPane />} />
-        </Routes>
+
+      <div className="flex min-h-0 flex-1">
+        {/* モバイル: ドロワー背景 */}
+        {navOpen && (
+          <div
+            className="fixed inset-x-0 top-12 bottom-0 z-30 bg-slate-900/50 lg:hidden"
+            onClick={() => setNavOpen(false)}
+            aria-hidden
+          />
+        )}
+        {/* サイドバー: デスクトップは常時インライン、モバイルはドロワー */}
+        <div
+          className={`flex shrink-0 max-lg:fixed max-lg:top-12 max-lg:bottom-0 max-lg:left-0 max-lg:z-40 max-lg:shadow-2xl max-lg:transition-transform max-lg:duration-200 ${
+            navOpen ? "max-lg:translate-x-0" : "max-lg:-translate-x-full"
+          }`}
+        >
+          <OpsSidebar />
+        </div>
+        <div className="min-w-0 flex-1 overflow-y-auto bg-slate-50/50">
+          <Routes>
+            <Route index element={<Navigate to="orgs" replace />} />
+            <Route path="orgs" element={<OpsOrgs />} />
+            <Route path="orgs/:orgId" element={<OpsOrgDetail />} />
+            <Route path="orgs/:orgId/channels/:channelId" element={<OpsChannelView />} />
+            <Route path="assistants" element={<OpsAssistants />} />
+            <Route path="*" element={<NotFoundPane />} />
+          </Routes>
+        </div>
       </div>
     </div>
+  );
+}
+
+/** 運営メニューのサイドバー（ChannelColumn と同じ見た目） */
+function OpsSidebar() {
+  const linkCls = ({ isActive }: { isActive: boolean }) =>
+    `flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
+      isActive ? "bg-indigo-600 font-medium text-white" : "text-slate-300 hover:bg-slate-700 hover:text-white"
+    }`;
+  return (
+    <aside className="flex w-60 shrink-0 flex-col bg-slate-800 text-slate-300">
+      <div className="px-4 pt-4 pb-2">
+        <h2 className="text-xs font-bold tracking-wider text-slate-400 uppercase">運営メニュー</h2>
+      </div>
+      <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2">
+        <NavLink to="/ops/orgs" className={linkCls}>
+          <Building2 size={16} /> 企業
+        </NavLink>
+        <NavLink to="/ops/assistants" end className={linkCls}>
+          <Users size={16} /> アシスタント
+        </NavLink>
+      </nav>
+    </aside>
   );
 }
 
@@ -237,8 +315,8 @@ function OpsOrgDetail() {
       {/* OPS-3: チャンネル閲覧（読み取り専用） */}
       <section className="mt-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="text-sm font-bold text-slate-600">チャンネル</h2>
-        <p className="mt-1 rounded-lg bg-amber-50 px-3 py-1.5 text-xs text-amber-800">
-          🛡 運営によるチャンネル閲覧はすべて監査ログに記録されます。
+        <p className="mt-1 flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs text-amber-800">
+          <ShieldCheck size={13} className="shrink-0" /> 運営によるチャンネル閲覧はすべて監査ログに記録されます。
         </p>
         <div className="mt-2 grid grid-cols-2 gap-2 max-md:grid-cols-1">
           {channels.map((c) => (
@@ -299,8 +377,8 @@ function OpsChannelView() {
         <span className="text-slate-400"># </span>
         {channel.name}
       </h1>
-      <div className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-        🛡 読み取り専用ビューです。この閲覧は監査ログに記録されました。
+      <div className="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+        <ShieldCheck size={14} className="shrink-0" /> 読み取り専用ビューです。この閲覧は監査ログに記録されました。
       </div>
       <div className="mt-4 space-y-2">
         {threads.length === 0 && <EmptyState icon={<FolderOpen size={40} strokeWidth={1.5} />} title="スレッドはありません" />}

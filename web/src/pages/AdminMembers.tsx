@@ -4,7 +4,7 @@ import type { User } from "../api/types";
 import { useApiData } from "../hooks/useApiData";
 import { useAuth } from "../stores/auth";
 import { useToasts } from "../stores/toast";
-import { MoreVertical, Plus } from "lucide-react";
+import { Mail, MoreVertical, Plus, ShieldCheck } from "lucide-react";
 import { useOrgCtx } from "../layout/OrgContext";
 import { Avatar, Button, Modal, SkeletonList } from "../components/ui";
 import { formatDateTime } from "../utils/format";
@@ -31,8 +31,8 @@ export function AdminMembers() {
           <Button onClick={() => setInviteOpen(true)}><Plus size={15} /> 招待</Button>
         </div>
         {/* MEM-4: 監査ログの明記 */}
-        <p className="mt-1 text-xs text-slate-500">
-          🛡 この画面での操作（招待・ロール変更・無効化）はすべて監査ログに記録されます。
+        <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
+          <ShieldCheck size={13} className="shrink-0" /> この画面での操作（招待・ロール変更・無効化）はすべて監査ログに記録されます。
         </p>
 
         <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -42,7 +42,7 @@ export function AdminMembers() {
           {/* MEM-3: 招待中 */}
           {invitations.map((inv) => (
             <div key={inv.id} className="flex items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0">
-              <span className="flex h-8 w-8 items-center justify-center rounded-md border-2 border-dashed border-slate-300 text-slate-400">✉</span>
+              <span className="flex h-8 w-8 items-center justify-center rounded-md border-2 border-dashed border-slate-300 text-slate-400"><Mail size={15} /></span>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="truncate text-sm font-medium text-slate-600">{inv.email}</span>

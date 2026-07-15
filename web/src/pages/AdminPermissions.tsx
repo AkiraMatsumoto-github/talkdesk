@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useBlocker } from "react-router-dom";
-import { Check, Minus, Plus } from "lucide-react";
+import { Check, Minus, Plus, ShieldCheck } from "lucide-react";
 import { api } from "../api";
 import { useApiData } from "../hooks/useApiData";
 import { useAuth } from "../stores/auth";
@@ -99,8 +99,8 @@ export function AdminPermissions() {
             <Button onClick={() => setConfirmOpen(true)} disabled={dirty.length === 0}>変更を保存</Button>
           </div>
         </div>
-        <p className="mt-1 text-xs text-slate-500">
-          🛡 メンバーごとのチャンネル閲覧権限を管理します。管理者は常に全チャンネルを閲覧できます。権限変更は監査ログに記録されます。
+        <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
+          <ShieldCheck size={13} className="shrink-0" /> メンバーごとのチャンネル閲覧権限を管理します。管理者は常に全チャンネルを閲覧できます。権限変更は監査ログに記録されます。
         </p>
 
         <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
